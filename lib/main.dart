@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/sync/google_drive_sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_sidebar.dart';
 import 'features/finance/presentation/screens/finance_screen.dart';
@@ -42,6 +43,16 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = AppSidebar.dashboardIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // Автосинхронизация при старте (если пользователь уже вошёл в Google).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(googleDriveSyncServiceProvider.notifier).start();
+    });
+  }
 
   static const Map<int, AppModule> _moduleByIndex = {
     1: AppModule.tasks,
