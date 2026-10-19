@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../finance/presentation/widgets/safe_to_spend_card.dart';
 import '../widgets/habits_overview_card.dart';
 import '../widgets/overview_header.dart';
 import '../widgets/quick_actions_card.dart';
@@ -42,6 +43,8 @@ class OverviewScreen extends StatelessWidget {
                           children: [
                             QuickActionsCard(),
                             SizedBox(height: 16),
+                            SafeToSpendCard(compact: true),
+                            SizedBox(height: 16),
                             WeeklyProgressCard(),
                           ],
                         ),
@@ -56,6 +59,8 @@ class OverviewScreen extends StatelessWidget {
                       TodayTasksOverviewCard(),
                       SizedBox(height: 16),
                       HabitsOverviewCard(),
+                      SizedBox(height: 16),
+                      SafeToSpendCard(compact: true),
                       SizedBox(height: 16),
                       WeeklyProgressCard(),
                     ],

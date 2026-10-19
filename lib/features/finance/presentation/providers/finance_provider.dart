@@ -144,6 +144,36 @@ final financeSummaryProvider = Provider<AsyncValue<FinanceSummary>>((ref) {
   return AsyncValue.data(buildSummary(accounts: a, obligations: s));
 });
 
+/// «Свободный дневной бюджет» (Safe-to-Spend) на сегодня. Пересчитывается
+/// при любом изменении счетов, операций и обязательных платежей.
+final dailySafeBudgetProvider =
+    Provider<AsyncValue<DailySafeBudgetState>>((ref) {
+  final accounts = ref.watch(financeAccountsProvider);
+  final transactions = ref.watch(financeTransactionsProvider);
+  final statuses = ref.watch(obligationStatusesProvider);
+  if (accounts.hasError) {
+    return AsyncValue.error(accounts.error!, accounts.stackTrace!);
+  }
+  if (transactions.hasError) {
+    return AsyncValue.error(transactions.error!, transactions.stackTrace!);
+  }
+  if (statuses.hasError) {
+    return AsyncValue.error(statuses.error!, statuses.stackTrace!);
+  }
+  final a = accounts.value;
+  final t = transactions.value;
+  final s = statuses.value;
+  if (a == null || t == null || s == null) return const AsyncValue.loading();
+  return AsyncValue.data(
+    buildDailySafeBudget(
+      accounts: a,
+      obligations: s,
+      transactions: t,
+      now: DateTime.now(),
+    ),
+  );
+});
+
 final expenseBreakdownProvider =
     Provider<AsyncValue<List<CategoryExpense>>>((ref) {
   final month = ref.watch(financeSelectedMonthProvider);

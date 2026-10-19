@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import '../../../core/database/app_database.dart';
+import 'finance_category_presets.dart';
 import 'finance_enums.dart';
 
 /// Сводка для карточек обзора.
@@ -210,6 +213,101 @@ FinanceSummary buildSummary({
     obligationsTotal: total,
     obligationsPaid: paid,
     leftToLive: balance - unpaid,
+  );
+}
+
+/// Результат расчёта «Свободного дневного бюджета» (Safe-to-Spend).
+class DailySafeBudgetState {
+  const DailySafeBudgetState({
+    required this.liquidBalance,
+    required this.unpaidObligations,
+    required this.spentToday,
+    required this.daysRemaining,
+  });
+
+  /// Деньги на обычных счетах (без депозитов/копилок и тел кредитов).
+  final double liquidBalance;
+
+  /// Ещё не оплаченные обязательные платежи и взносы по кредитам месяца.
+  final double unpaidObligations;
+
+  /// Повседневные траты за сегодня (без обязательных платежей, кредитов
+  /// и переводов на депозиты).
+  final double spentToday;
+
+  /// Дней до конца месяца, включая сегодняшний (минимум 1).
+  final int daysRemaining;
+
+  /// Свободный пул на начало сегодняшнего дня: сегодняшние траты возвращаются
+  /// в пул, чтобы вычитаться ровно из сегодняшней нормы.
+  double get freePoolAtStartOfDay =>
+      (liquidBalance + spentToday) - unpaidObligations;
+
+  /// Норма на день (не меньше нуля).
+  double get dailyAllowance =>
+      math.max(0.0, freePoolAtStartOfDay / daysRemaining);
+
+  /// Осталось на сегодня (отрицательное — перерасход).
+  double get remainingToday => dailyAllowance - spentToday;
+
+  /// Текущий свободный остаток до конца месяца.
+  double get freePoolTotal => liquidBalance - unpaidObligations;
+
+  /// Перерасход за сегодня.
+  bool get isOverspent => remainingToday < 0;
+
+  /// Доля потраченного от дневной нормы (не ограничена сверху).
+  /// При нулевой норме: 0, если трат нет, иначе 1.
+  double get spentRatio {
+    if (dailyAllowance <= 0) return spentToday > 0 ? 1.0 : 0.0;
+    return math.max(0.0, spentToday / dailyAllowance);
+  }
+}
+
+/// Повседневный ли это расход: не оплата обязательного платежа, не платёж
+/// по кредиту и не перевод (переводы на депозиты — не расходы).
+bool isDailyExpense(FinanceTransactionEntity t) {
+  if (t.deletedAt != null || !isExpense(t)) return false;
+  if (t.obligationId != null || t.targetAccountId != null) return false;
+  return t.categoryId != FinanceCategoryIds.loans &&
+      t.categoryId != FinanceCategoryIds.obligations;
+}
+
+/// Количество дней до конца месяца [now], включая сегодняшний (минимум 1).
+int daysRemainingInMonth(DateTime now) {
+  final lastDay = DateTime.utc(now.year, now.month + 1, 0).day;
+  return math.max(1, lastDay - now.day + 1);
+}
+
+/// Считает «Свободный дневной бюджет» на момент [now].
+///
+/// [obligations] — статусы обязательных платежей текущего месяца.
+DailySafeBudgetState buildDailySafeBudget({
+  required Iterable<FinanceAccountEntity> accounts,
+  required Iterable<ObligationStatus> obligations,
+  required Iterable<FinanceTransactionEntity> transactions,
+  required DateTime now,
+}) {
+  final liquid = accounts
+      .where((a) =>
+          a.deletedAt == null && a.kind == FinanceAccountKind.account.value)
+      .fold(0.0, (sum, a) => sum + a.balance);
+
+  final unpaid = obligations
+      .where((o) => !o.isPaid)
+      .fold(0.0, (sum, o) => sum + o.obligation.amount);
+
+  final spentToday = transactions.where((t) {
+    if (!isDailyExpense(t)) return false;
+    final d = t.date.toLocal();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }).fold(0.0, (sum, t) => sum + t.amount);
+
+  return DailySafeBudgetState(
+    liquidBalance: liquid,
+    unpaidObligations: unpaid,
+    spentToday: spentToday,
+    daysRemaining: daysRemainingInMonth(now),
   );
 }
 
