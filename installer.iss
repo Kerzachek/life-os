@@ -1,51 +1,54 @@
-; Inno Setup script for Life OS (home_organizer) - password protected installer.
-; Paths are relative to the folder containing this file (project root).
-; Compile with: ISCC.exe installer.iss  (or run build_installer.ps1)
-
+; Скрипт сборки инсталлятора Life OS через Inno Setup
 #define MyAppName "Life OS"
-#ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
-#endif
-#define MyAppPublisher "Artem Chugaev"
+#define MyAppVersion "1.0.0"
+#define MyAppPublisher "Personal"
 #define MyAppExeName "home_organizer.exe"
 #define MyAppSourceDir "build\windows\x64\runner\Release"
 
-; Installer password. Override from the command line: ISCC.exe /DInstallPassword=secret installer.iss
-#ifndef InstallPassword
-  #define InstallPassword "2486"
-#endif
-
 [Setup]
-AppId={{8F2B5A3C-1122-4D3E-9456-ABCDEF123456}
+AppId={{D37E84B1-4A59-42E1-9B3C-9B67C9267A10}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=build\installer
 OutputBaseFilename=LifeOS_Setup
-Compression=lzma2/ultra64
+Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
 
-; --- Password protection (files are encrypted with the password) ---
+; Защита паролем
+; Если пароль передан через скрипт (-Password "pass"), используется он.
+; Если нет — используется резервный пароль ниже.
+#ifndef InstallPassword
+  #define InstallPassword "12345"
+#endif
 Password={#InstallPassword}
 Encryption=yes
 
+; Закрывать запущенный экземпляр перед обновлением
+CloseApplications=yes
+RestartApplications=no
+
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; Whole Flutter Release output (exe, dlls, data\ with flutter_assets). Stray installer.iss copies are excluded.
-Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Excludes: "installer.iss"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Основной exe-файл
+Source: "{#MyAppSourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+
+; Все зависимые DLL и ресурсы Flutter (data, flutter_windows.dll и т.д.)
+Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]

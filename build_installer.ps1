@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
-    Builds the Flutter Windows release and packages it into a password-protected Inno Setup installer.
+    Builds the Flutter Windows release with embedded OAuth keys and packages it into an Inno Setup installer.
 
 .DESCRIPTION
     Steps:
-      1. flutter build windows --release
-      2. ISCC.exe installer.iss
+      1. Verifies key.json presence
+      2. flutter build windows --release --dart-define-from-file=key.json
+      3. ISCC.exe installer.iss
 
 .PARAMETER Password
     Optional. Overrides the installer password defined in installer.iss.
@@ -37,7 +38,6 @@ function Find-Iscc {
     $cmd = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
 
-    # Any Inno Setup version (7, 6, ...), newest first; per-machine and per-user installs.
     $roots = @(
         $env:ProgramFiles,
         ${env:ProgramFiles(x86)},
@@ -57,9 +57,12 @@ function Find-Iscc {
            "(or: winget install JRSoftware.InnoSetup) or pass -IsccPath.")
 }
 
-# --- Pre-checks (fail fast, before the long Flutter build) ---
+# --- Pre-checks (fail fast) ---
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw "flutter not found in PATH."
+}
+if (-not (Test-Path (Join-Path $PSScriptRoot 'key.json'))) {
+    throw "key.json not found in project root. Create it with your OAuth credentials before building."
 }
 if (-not (Test-Path (Join-Path $PSScriptRoot 'installer.iss'))) {
     throw "installer.iss not found next to build_installer.ps1."
@@ -67,9 +70,9 @@ if (-not (Test-Path (Join-Path $PSScriptRoot 'installer.iss'))) {
 $iscc = Find-Iscc -Explicit $IsccPath
 Write-Host "Using ISCC: $iscc" -ForegroundColor DarkGray
 
-# --- Step 1: Flutter release build ---
-Write-Host "`n==> flutter build windows --release" -ForegroundColor Cyan
-& flutter build windows --release
+# --- Step 1: Flutter release build with key.json ---
+Write-Host "`n==> flutter build windows --release --dart-define-from-file=key.json" -ForegroundColor Cyan
+& flutter build windows --release --dart-define-from-file=key.json
 if ($LASTEXITCODE -ne 0) {
     throw "flutter build windows --release failed (exit code $LASTEXITCODE)."
 }
