@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/settings/domain/app_module.dart';
+import '../services/update_service.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
 
 class NavigationItemData {
@@ -46,6 +47,7 @@ class AppSidebar extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final enabledModules = ref.watch(enabledModulesProvider);
+    final appVersion = ref.watch(currentAppVersionProvider).value;
     final visibleItems = _navItems
         .where((item) => item.module == null || enabledModules.contains(item.module))
         .toList();
@@ -78,6 +80,11 @@ class AppSidebar extends ConsumerWidget {
                     children: [
                       Text('LIFE OS', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white)),
                       Text('PERSONAL ERP', style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant)),
+                      if (appVersion != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text('v$appVersion', style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, letterSpacing: 0.8, color: colorScheme.primary.withValues(alpha: 0.8))),
+                        ),
                     ],
                   ),
                 ),
