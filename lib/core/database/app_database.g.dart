@@ -594,6 +594,32 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskEntity> {
       'REFERENCES tasks (id)',
     ),
   );
+  static const VerificationMeta _reminderAtMeta = const VerificationMeta(
+    'reminderAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reminderAt = GeneratedColumn<DateTime>(
+    'reminder_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isReminderSentMeta = const VerificationMeta(
+    'isReminderSent',
+  );
+  @override
+  late final GeneratedColumn<bool> isReminderSent = GeneratedColumn<bool>(
+    'is_reminder_sent',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_reminder_sent" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -608,6 +634,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskEntity> {
     recurrenceRule,
     categoryId,
     parentId,
+    reminderAt,
+    isReminderSent,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -704,6 +732,21 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskEntity> {
         parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
       );
     }
+    if (data.containsKey('reminder_at')) {
+      context.handle(
+        _reminderAtMeta,
+        reminderAt.isAcceptableOrUnknown(data['reminder_at']!, _reminderAtMeta),
+      );
+    }
+    if (data.containsKey('is_reminder_sent')) {
+      context.handle(
+        _isReminderSentMeta,
+        isReminderSent.isAcceptableOrUnknown(
+          data['is_reminder_sent']!,
+          _isReminderSentMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -761,6 +804,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskEntity> {
         DriftSqlType.string,
         data['${effectivePrefix}parent_id'],
       ),
+      reminderAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reminder_at'],
+      ),
+      isReminderSent: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_reminder_sent'],
+      )!,
     );
   }
 
@@ -783,6 +834,12 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
   final String? recurrenceRule;
   final String? categoryId;
   final String? parentId;
+
+  /// Момент напоминания, независимый от срока выполнения.
+  final DateTime? reminderAt;
+
+  /// Напоминание уже показано — повторно не отправляется.
+  final bool isReminderSent;
   const TaskEntity({
     required this.id,
     required this.createdAt,
@@ -796,6 +853,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
     this.recurrenceRule,
     this.categoryId,
     this.parentId,
+    this.reminderAt,
+    required this.isReminderSent,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -824,6 +883,10 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
     if (!nullToAbsent || parentId != null) {
       map['parent_id'] = Variable<String>(parentId);
     }
+    if (!nullToAbsent || reminderAt != null) {
+      map['reminder_at'] = Variable<DateTime>(reminderAt);
+    }
+    map['is_reminder_sent'] = Variable<bool>(isReminderSent);
     return map;
   }
 
@@ -853,6 +916,10 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
       parentId: parentId == null && nullToAbsent
           ? const Value.absent()
           : Value(parentId),
+      reminderAt: reminderAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderAt),
+      isReminderSent: Value(isReminderSent),
     );
   }
 
@@ -874,6 +941,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
       recurrenceRule: serializer.fromJson<String?>(json['recurrenceRule']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       parentId: serializer.fromJson<String?>(json['parentId']),
+      reminderAt: serializer.fromJson<DateTime?>(json['reminderAt']),
+      isReminderSent: serializer.fromJson<bool>(json['isReminderSent']),
     );
   }
   @override
@@ -892,6 +961,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
       'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
       'categoryId': serializer.toJson<String?>(categoryId),
       'parentId': serializer.toJson<String?>(parentId),
+      'reminderAt': serializer.toJson<DateTime?>(reminderAt),
+      'isReminderSent': serializer.toJson<bool>(isReminderSent),
     };
   }
 
@@ -908,6 +979,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
     Value<String?> recurrenceRule = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
     Value<String?> parentId = const Value.absent(),
+    Value<DateTime?> reminderAt = const Value.absent(),
+    bool? isReminderSent,
   }) => TaskEntity(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -923,6 +996,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
         : this.recurrenceRule,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     parentId: parentId.present ? parentId.value : this.parentId,
+    reminderAt: reminderAt.present ? reminderAt.value : this.reminderAt,
+    isReminderSent: isReminderSent ?? this.isReminderSent,
   );
   TaskEntity copyWithCompanion(TasksCompanion data) {
     return TaskEntity(
@@ -944,6 +1019,12 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
           ? data.categoryId.value
           : this.categoryId,
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      reminderAt: data.reminderAt.present
+          ? data.reminderAt.value
+          : this.reminderAt,
+      isReminderSent: data.isReminderSent.present
+          ? data.isReminderSent.value
+          : this.isReminderSent,
     );
   }
 
@@ -961,7 +1042,9 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
           ..write('status: $status, ')
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('categoryId: $categoryId, ')
-          ..write('parentId: $parentId')
+          ..write('parentId: $parentId, ')
+          ..write('reminderAt: $reminderAt, ')
+          ..write('isReminderSent: $isReminderSent')
           ..write(')'))
         .toString();
   }
@@ -980,6 +1063,8 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
     recurrenceRule,
     categoryId,
     parentId,
+    reminderAt,
+    isReminderSent,
   );
   @override
   bool operator ==(Object other) =>
@@ -996,7 +1081,9 @@ class TaskEntity extends DataClass implements Insertable<TaskEntity> {
           other.status == this.status &&
           other.recurrenceRule == this.recurrenceRule &&
           other.categoryId == this.categoryId &&
-          other.parentId == this.parentId);
+          other.parentId == this.parentId &&
+          other.reminderAt == this.reminderAt &&
+          other.isReminderSent == this.isReminderSent);
 }
 
 class TasksCompanion extends UpdateCompanion<TaskEntity> {
@@ -1012,6 +1099,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
   final Value<String?> recurrenceRule;
   final Value<String?> categoryId;
   final Value<String?> parentId;
+  final Value<DateTime?> reminderAt;
+  final Value<bool> isReminderSent;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -1026,6 +1115,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
     this.recurrenceRule = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.parentId = const Value.absent(),
+    this.reminderAt = const Value.absent(),
+    this.isReminderSent = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -1041,6 +1132,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
     this.recurrenceRule = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.parentId = const Value.absent(),
+    this.reminderAt = const Value.absent(),
+    this.isReminderSent = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -1059,6 +1152,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
     Expression<String>? recurrenceRule,
     Expression<String>? categoryId,
     Expression<String>? parentId,
+    Expression<DateTime>? reminderAt,
+    Expression<bool>? isReminderSent,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1074,6 +1169,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
       if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
       if (categoryId != null) 'category_id': categoryId,
       if (parentId != null) 'parent_id': parentId,
+      if (reminderAt != null) 'reminder_at': reminderAt,
+      if (isReminderSent != null) 'is_reminder_sent': isReminderSent,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1091,6 +1188,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
     Value<String?>? recurrenceRule,
     Value<String?>? categoryId,
     Value<String?>? parentId,
+    Value<DateTime?>? reminderAt,
+    Value<bool>? isReminderSent,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -1106,6 +1205,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       categoryId: categoryId ?? this.categoryId,
       parentId: parentId ?? this.parentId,
+      reminderAt: reminderAt ?? this.reminderAt,
+      isReminderSent: isReminderSent ?? this.isReminderSent,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1149,6 +1250,12 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
     if (parentId.present) {
       map['parent_id'] = Variable<String>(parentId.value);
     }
+    if (reminderAt.present) {
+      map['reminder_at'] = Variable<DateTime>(reminderAt.value);
+    }
+    if (isReminderSent.present) {
+      map['is_reminder_sent'] = Variable<bool>(isReminderSent.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1170,6 +1277,8 @@ class TasksCompanion extends UpdateCompanion<TaskEntity> {
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('categoryId: $categoryId, ')
           ..write('parentId: $parentId, ')
+          ..write('reminderAt: $reminderAt, ')
+          ..write('isReminderSent: $isReminderSent, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7756,6 +7865,8 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<String?> recurrenceRule,
   Value<String?> categoryId,
   Value<String?> parentId,
+  Value<DateTime?> reminderAt,
+  Value<bool> isReminderSent,
   Value<int> rowid,
 });
 typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
@@ -7771,6 +7882,8 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<String?> recurrenceRule,
   Value<String?> categoryId,
   Value<String?> parentId,
+  Value<DateTime?> reminderAt,
+  Value<bool> isReminderSent,
   Value<int> rowid,
 });
 
@@ -7868,6 +7981,16 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<String> get recurrenceRule => $composableBuilder(
     column: $table.recurrenceRule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reminderAt => $composableBuilder(
+    column: $table.reminderAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isReminderSent => $composableBuilder(
+    column: $table.isReminderSent,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7977,6 +8100,16 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get reminderAt => $composableBuilder(
+    column: $table.reminderAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isReminderSent => $composableBuilder(
+    column: $table.isReminderSent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8067,6 +8200,16 @@ class $$TasksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get reminderAt => $composableBuilder(
+    column: $table.reminderAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isReminderSent => $composableBuilder(
+    column: $table.isReminderSent,
+    builder: (column) => column,
+  );
+
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8154,6 +8297,8 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
+                Value<DateTime?> reminderAt = const Value.absent(),
+                Value<bool> isReminderSent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -8168,6 +8313,8 @@ class $$TasksTableTableManager
                 recurrenceRule: recurrenceRule,
                 categoryId: categoryId,
                 parentId: parentId,
+                reminderAt: reminderAt,
+                isReminderSent: isReminderSent,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8184,6 +8331,8 @@ class $$TasksTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
+                Value<DateTime?> reminderAt = const Value.absent(),
+                Value<bool> isReminderSent = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -8198,6 +8347,8 @@ class $$TasksTableTableManager
                 recurrenceRule: recurrenceRule,
                 categoryId: categoryId,
                 parentId: parentId,
+                reminderAt: reminderAt,
+                isReminderSent: isReminderSent,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

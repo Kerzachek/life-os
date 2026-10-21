@@ -71,6 +71,7 @@ class TasksRepository {
     required String title,
     String? description,
     DateTime? dueDate,
+    DateTime? reminderAt,
     TaskPriority priority = TaskPriority.medium,
     TaskCategory category = TaskCategory.defaultCategory,
   }) async {
@@ -82,6 +83,7 @@ class TasksRepository {
       title: title,
       description: Value(description),
       dueDate: Value(dueDate),
+      reminderAt: Value(reminderAt),
       priority: Value(priority.value),
       status: Value(TaskStatus.todo.value),
       categoryId: Value(category.id),
@@ -93,22 +95,62 @@ class TasksRepository {
   ///
   /// Обновляет `updatedAt`, поэтому все Drift-стримы (`watchTasks`,
   /// `watchTodayTasks`) автоматически эмитят новые данные.
+  /// Изменённое время напоминания снова «взводит» его (`isReminderSent`).
   Future<void> updateTask({
     required String id,
     required String title,
     String? description,
     DateTime? dueDate,
+    DateTime? reminderAt,
     required TaskPriority priority,
     required TaskCategory category,
   }) async {
     final now = DateTime.now().toUtc();
+    await _db.transaction(() async {
+      final current = await (_db.select(_db.tasks)
+            ..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+      final reminderChanged = current == null ||
+          !_sameMoment(current.reminderAt, reminderAt);
+      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+        TasksCompanion(
+          title: Value(title),
+          description: Value(description),
+          dueDate: Value(dueDate),
+          reminderAt: Value(reminderAt),
+          isReminderSent:
+              reminderChanged ? const Value(false) : const Value.absent(),
+          priority: Value(priority.value),
+          categoryId: Value(category.id),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  static bool _sameMoment(DateTime? a, DateTime? b) {
+    if (a == null || b == null) return a == b;
+    return a.isAtSameMomentAs(b);
+  }
+
+  /// Подписка на задачи с ещё не отправленным напоминанием.
+  Stream<List<TaskEntity>> watchPendingReminders() {
+    return (_db.select(_db.tasks)
+          ..where(
+            (t) =>
+                t.deletedAt.isNull() &
+                t.reminderAt.isNotNull() &
+                t.isReminderSent.equals(false),
+          ))
+        .watch();
+  }
+
+  /// Отмечает напоминание задачи отправленным.
+  Future<void> markReminderSent(String id) async {
+    final now = DateTime.now().toUtc();
     await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(
-        title: Value(title),
-        description: Value(description),
-        dueDate: Value(dueDate),
-        priority: Value(priority.value),
-        categoryId: Value(category.id),
+        isReminderSent: const Value(true),
         updatedAt: Value(now),
       ),
     );

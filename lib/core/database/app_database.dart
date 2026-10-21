@@ -43,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -65,7 +65,11 @@ class AppDatabase extends _$AppDatabase {
             'WHERE is_chore = 1 AND category_id IS NULL',
           );
           // Пересоздание таблицы без колонки is_chore.
-          await m.alterTable(TableMigration(tasks));
+          // Колонки напоминания (v6) в старой таблице ещё отсутствуют.
+          await m.alterTable(TableMigration(
+            tasks,
+            newColumns: [tasks.reminderAt, tasks.isReminderSent],
+          ));
         }
         if (from < 4) {
           await m.createTable(financeAccounts);
@@ -77,6 +81,18 @@ class AppDatabase extends _$AppDatabase {
         if (from < 5) {
           await m.createTable(routineItems);
           await m.createTable(routineDailyLogs);
+        }
+        if (from < 6) {
+          // Пересоздание таблицы на шаге v3 уже могло добавить колонки.
+          final existing = (await customSelect('PRAGMA table_info(tasks)')
+                  .get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          for (final column in [tasks.reminderAt, tasks.isReminderSent]) {
+            if (!existing.contains(column.name)) {
+              await m.addColumn(tasks, column);
+            }
+          }
         }
       },
     );

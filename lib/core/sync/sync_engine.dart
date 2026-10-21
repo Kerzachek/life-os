@@ -7,6 +7,18 @@ import 'sync_table_adapter.dart';
 
 export 'sync_table_adapter.dart' show MergeResult;
 
+/// [TaskEntity.fromJson] с поддержкой снимков старых версий, где ещё нет
+/// полей напоминания (`reminderAt` → `null`, `isReminderSent` → `false`).
+TaskEntity taskFromSyncJson(
+  Map<String, dynamic> json, {
+  ValueSerializer? serializer,
+}) {
+  return TaskEntity.fromJson(
+    {...json, 'isReminderSent': json['isReminderSent'] ?? false},
+    serializer: serializer,
+  );
+}
+
 /// Движок построчного слияния локальной БД с облачным снимком
 /// (Last-Write-Wins по `updatedAt` / `deletedAt`).
 ///
@@ -57,7 +69,7 @@ class SyncEngine {
       name: 'tasks',
       db: _db,
       table: _db.tasks,
-      fromJson: TaskEntity.fromJson,
+      fromJson: taskFromSyncJson,
     ),
     DriftSyncTable(
       name: 'habit_logs',

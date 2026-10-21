@@ -12,7 +12,10 @@ import '../../features/habits/presentation/providers/habits_provider.dart';
 import '../../features/overview/presentation/providers/life_score_provider.dart';
 import '../../features/settings/data/repositories/settings_repository.dart';
 import '../../features/settings/domain/app_module.dart';
+import '../../features/tasks/data/repositories/tasks_repository.dart';
+import '../../features/tasks/domain/task_reminder.dart';
 import '../../features/tasks/domain/task_status.dart';
+import '../../features/tasks/presentation/providers/tasks_provider.dart';
 import '../database/app_database.dart';
 import 'notification_service.dart';
 import 'update_service.dart';
@@ -60,6 +63,15 @@ NotificationMessage? buildTasksReminder(
   );
 }
 
+/// Персональное напоминание о задаче (поле `reminderAt`).
+NotificationMessage buildTaskReminder(TaskEntity task) {
+  final due = task.dueDate;
+  final body = due == null
+      ? task.title
+      : '${task.title}\nСрок: ${DateFormat('dd.MM.yyyy').format(due.toLocal())}';
+  return NotificationMessage('Напоминание о задаче', body);
+}
+
 /// Вечернее напоминание о невыполненных сегодня привычках.
 NotificationMessage? buildHabitsReminder(
   List<HabitWithStatus> habits,
@@ -94,14 +106,17 @@ NotificationMessage? buildPaymentsReminder(List<ObligationStatus> statuses) {
 /// напоминания. Каждый тип — не чаще раза в день (метка хранится в настройках).
 class NotificationScheduler {
   static const Duration checkInterval = Duration(minutes: 15);
+  static const Duration taskRemindersInterval = Duration(seconds: 30);
   static const Duration _debounce = Duration(seconds: 3);
   static const String _sentKeyPrefix = 'notification_sent_';
 
   final Ref _ref;
   final List<ProviderSubscription<Object?>> _subscriptions = [];
   Timer? _periodic;
+  Timer? _remindersPeriodic;
   Timer? _pending;
   bool _running = false;
+  bool _remindersRunning = false;
   bool _started = false;
 
   NotificationScheduler(this._ref);
@@ -125,10 +140,50 @@ class NotificationScheduler {
     watch(todayTasksStreamProvider);
     watch(habitsWithStatusProvider);
     watch(obligationStatusesProvider);
+    _subscriptions.add(_ref.listen(
+      pendingRemindersStreamProvider,
+      (_, _) => unawaited(_checkTaskReminders()),
+    ));
 
     _periodic = Timer.periodic(checkInterval, (_) => _schedule());
+    // Таймер срабатывает и сразу после выхода системы из сна.
+    _remindersPeriodic = Timer.periodic(
+      taskRemindersInterval,
+      (_) => unawaited(_checkTaskReminders()),
+    );
     _schedule();
+    unawaited(_checkTaskReminders());
     unawaited(_checkUpdate());
+  }
+
+  /// Отправляет наступившие персональные напоминания о задачах. Каждое —
+  /// один раз: после показа задача помечается `isReminderSent`.
+  Future<void> _checkTaskReminders() async {
+    if (_remindersRunning) return;
+    _remindersRunning = true;
+    try {
+      final tasks = _ref.read(pendingRemindersStreamProvider).value;
+      if (tasks == null) return;
+      final due = dueTaskReminders(tasks, DateTime.now());
+      if (due.isEmpty) return;
+      // Раздел или уведомления выключены — напоминания ждут включения.
+      if (!await _service.canNotify(AppModule.tasks)) return;
+
+      final repository = _ref.read(tasksRepositoryProvider);
+      for (final task in due) {
+        final message = buildTaskReminder(task);
+        final sent = await _service.show(
+          title: message.title,
+          body: message.body,
+          module: AppModule.tasks,
+        );
+        if (sent) await repository.markReminderSent(task.id);
+      }
+    } catch (e) {
+      debugPrint('NotificationScheduler: ошибка напоминаний задач: $e');
+    } finally {
+      _remindersRunning = false;
+    }
   }
 
   void _schedule() {
@@ -205,6 +260,7 @@ class NotificationScheduler {
 
   void dispose() {
     _periodic?.cancel();
+    _remindersPeriodic?.cancel();
     _pending?.cancel();
     for (final s in _subscriptions) {
       s.close();

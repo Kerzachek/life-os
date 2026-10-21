@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
+import '../../domain/task_reminder.dart';
 import '../providers/tasks_provider.dart';
 import 'category_dropdown_field.dart';
+import 'reminder_field.dart';
 
 /// Универсальная форма задачи: создание (`taskToEdit == null`) или
 /// редактирование существующей задачи.
@@ -25,6 +27,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
   late final TextEditingController _descriptionController;
 
   DateTime? _dueDate;
+  DateTime? _reminderAt;
   late TaskPriority _priority;
   late TaskCategory _category;
 
@@ -38,9 +41,22 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
     _descriptionController =
         TextEditingController(text: task?.description ?? '');
     _dueDate = task?.dueDate;
+    _reminderAt = task?.reminderAt;
     _priority =
         task != null ? TaskPriority.fromValue(task.priority) : TaskPriority.medium;
     _category = TaskCategory.fromId(task?.categoryId);
+  }
+
+  /// Меняет срок; напоминание из пресета («за сутки» и т. п.) сдвигается
+  /// вместе со сроком, произвольное — остаётся как есть.
+  void _setDueDate(DateTime? date) {
+    final preset = ReminderPreset.detect(_reminderAt, _dueDate);
+    setState(() {
+      _dueDate = date;
+      if (preset.isRelative && date != null) {
+        _reminderAt = preset.resolve(date);
+      }
+    });
   }
 
   @override
@@ -66,6 +82,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
         title: title,
         description: description,
         dueDate: _dueDate,
+        reminderAt: _reminderAt,
         priority: _priority,
         category: _category,
       );
@@ -74,6 +91,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
         title: title,
         description: description,
         dueDate: _dueDate,
+        reminderAt: _reminderAt,
         priority: _priority,
         category: _category,
       );
@@ -202,18 +220,22 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
                           firstDate: firstDate,
                           lastDate: lastDate,
                         );
-                        if (date != null) {
-                          setState(() => _dueDate = date);
-                        }
+                        if (date != null) _setDueDate(date);
                       },
                     ),
                   ),
                   if (_dueDate != null)
                     IconButton(
                       icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => setState(() => _dueDate = null),
+                      onPressed: () => _setDueDate(null),
                     ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              ReminderField(
+                dueDate: _dueDate,
+                reminderAt: _reminderAt,
+                onChanged: (val) => setState(() => _reminderAt = val),
               ),
             ],
           ),

@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
+import '../../domain/task_reminder.dart';
 import '../../domain/task_status.dart';
 import '../providers/tasks_provider.dart';
 import 'add_task_dialog.dart';
 import 'category_badge.dart';
 import 'due_date_badge.dart';
 import 'priority_badge.dart';
+import 'reminder_badge.dart';
 
 class TaskItemWidget extends ConsumerWidget {
   final TaskEntity task;
@@ -109,6 +111,13 @@ class TaskItemWidget extends ConsumerWidget {
                           DueDateBadge(
                             dueDate: task.dueDate!,
                             isOverdue: isOverdue,
+                          ),
+                        if (task.reminderAt != null)
+                          ReminderBadge(
+                            key: ValueKey('task-reminder-${task.id}'),
+                            reminderAt: task.reminderAt!,
+                            isActive: isReminderPending(task) &&
+                                task.reminderAt!.isAfter(now),
                           ),
                       ],
                     ),

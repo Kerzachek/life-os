@@ -26,6 +26,7 @@ TaskEntity _task(
     dueDate: dueDate,
     priority: priority,
     status: status,
+    isReminderSent: false,
   );
 }
 

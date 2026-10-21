@@ -16,6 +16,7 @@ TaskEntity _task(String title, {DateTime? due, int status = 0}) => TaskEntity(
       dueDate: due,
       priority: 1,
       status: status,
+      isReminderSent: false,
     );
 
 HabitWithStatus _habit(String title, {bool done = false}) => HabitWithStatus(

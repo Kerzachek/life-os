@@ -57,6 +57,11 @@ final rawTasksStreamProvider = StreamProvider<List<TaskEntity>>((ref) {
   return repository.watchTasks();
 });
 
+/// Задачи с ещё не отправленным напоминанием (для планировщика уведомлений).
+final pendingRemindersStreamProvider = StreamProvider<List<TaskEntity>>((ref) {
+  return ref.watch(tasksRepositoryProvider).watchPendingReminders();
+});
+
 final filteredTasksProvider = Provider<AsyncValue<List<TaskEntity>>>((ref) {
   final tasksAsync = ref.watch(rawTasksStreamProvider);
   final categoryFilter = ref.watch(taskCategoryFilterProvider);
@@ -106,6 +111,7 @@ class TasksController {
     required String title,
     String? description,
     DateTime? dueDate,
+    DateTime? reminderAt,
     TaskPriority priority = TaskPriority.medium,
     TaskCategory category = TaskCategory.defaultCategory,
   }) async {
@@ -113,6 +119,7 @@ class TasksController {
       title: title,
       description: description,
       dueDate: dueDate,
+      reminderAt: reminderAt,
       priority: priority,
       category: category,
     );
@@ -123,6 +130,7 @@ class TasksController {
     required String title,
     String? description,
     DateTime? dueDate,
+    DateTime? reminderAt,
     required TaskPriority priority,
     required TaskCategory category,
   }) async {
@@ -131,6 +139,7 @@ class TasksController {
       title: title,
       description: description,
       dueDate: dueDate,
+      reminderAt: reminderAt,
       priority: priority,
       category: category,
     );

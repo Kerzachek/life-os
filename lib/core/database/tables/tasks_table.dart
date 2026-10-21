@@ -12,4 +12,9 @@ class Tasks extends Table with SyncableTable {
   TextColumn get recurrenceRule => text().nullable()();
   TextColumn get categoryId => text().nullable().references(Categories, #id)();
   TextColumn get parentId => text().nullable().references(Tasks, #id)();
+  /// Момент напоминания, независимый от срока выполнения.
+  DateTimeColumn get reminderAt => dateTime().nullable()();
+  /// Напоминание уже показано — повторно не отправляется.
+  BoolColumn get isReminderSent =>
+      boolean().withDefault(const Constant(false))();
 }
