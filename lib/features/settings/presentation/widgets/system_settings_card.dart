@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,7 +64,8 @@ class SystemSettingsCard extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                'Поведение приложения в Windows. Изменения применяются сразу.',
+                'Поведение приложения в ${Platform.isMacOS ? 'macOS' : 'Windows'}. '
+                'Изменения применяются сразу.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -87,7 +90,9 @@ class SystemSettingsCard extends ConsumerWidget {
             _SystemToggleTile(
               key: const ValueKey('launch_at_startup_switch'),
               icon: Icons.power_settings_new_rounded,
-              title: 'Автозапуск с Windows',
+              title: Platform.isMacOS
+                  ? 'Автозапуск с macOS'
+                  : 'Автозапуск с Windows',
               description:
                   'Автоматически запускать LifeOS при входе в систему',
               value: launchAtStartup,

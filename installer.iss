@@ -1,6 +1,6 @@
 ; Скрипт сборки инсталлятора Life OS через Inno Setup
 #define MyAppName "Life OS"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.4.0"
 #define MyAppPublisher "Personal"
 #define MyAppExeName "home_organizer.exe"
 #define MyAppSourceDir "build\windows\x64\runner\Release"
@@ -55,5 +55,5 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupA
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
-; Перезапуск после тихого обновления из приложения (/SILENT)
+; Перезапуск после тихого обновления из приложения (/VERYSILENT)
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent

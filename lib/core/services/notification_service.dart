@@ -8,7 +8,8 @@ import '../../features/settings/data/repositories/settings_repository.dart';
 import '../../features/settings/domain/app_module.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
 
-/// Системные всплывающие уведомления Windows (Toast Notifications).
+/// Системные всплывающие уведомления: Toast Notifications в Windows,
+/// Notification Center в macOS.
 ///
 /// Перед отправкой проверяет настройки: глобальный переключатель
 /// уведомлений и включён ли раздел-источник ([AppModule]).
@@ -17,17 +18,17 @@ class NotificationService {
 
   static bool _initialized = false;
 
-  /// Уведомления доступны: платформа Windows и [initialize] прошёл успешно.
+  /// Уведомления доступны: платформа Windows/macOS и [initialize] прошёл успешно.
   static bool get isAvailable => _initialized;
 
   final SettingsRepository _settings;
 
   NotificationService(this._settings);
 
-  /// Регистрирует приложение в центре уведомлений Windows (создаёт ярлык
+  /// Регистрирует приложение в центре уведомлений (в Windows создаёт ярлык
   /// с AppUserModelID при необходимости). Вызывается один раз в `main`.
   static Future<void> initialize() async {
-    if (!Platform.isWindows) return;
+    if (!Platform.isWindows && !Platform.isMacOS) return;
     try {
       await localNotifier.setup(
         appName: appName,

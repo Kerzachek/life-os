@@ -18,7 +18,12 @@ import 'routine_reset_service.dart';
 /// иначе — завершает приложение. Выход из меню трея закрывает всегда.
 class TrayService with WindowListener {
   static const String tooltip = 'LifeOS';
-  static const String iconAsset = 'assets/app_icon.ico';
+  static const String windowsIconAsset = 'assets/app_icon.ico';
+  static const String macosIconAsset = 'assets/tray_icon.png';
+
+  /// Windows ждёт .ico, строка меню macOS — PNG.
+  static String get iconAsset =>
+      Platform.isMacOS ? macosIconAsset : windowsIconAsset;
 
   static bool _initialized = false;
   static bool _launchedMinimized = false;
@@ -26,7 +31,7 @@ class TrayService with WindowListener {
   /// Значок держим в статическом поле: собранный GC объект убирает его из трея.
   static TrayIcon? _trayIcon;
 
-  /// Фоновый режим доступен: платформа Windows и [initialize] прошёл успешно.
+  /// Фоновый режим доступен: платформа Windows/macOS и [initialize] прошёл успешно.
   static bool get isAvailable => _initialized;
 
   final SettingsRepository _settings;
@@ -46,7 +51,7 @@ class TrayService with WindowListener {
   /// Подключает window_manager и включает перехват крестика.
   /// Вызывается один раз в `main` с аргументами командной строки.
   static Future<void> initialize(List<String> args) async {
-    if (!Platform.isWindows) return;
+    if (!Platform.isWindows && !Platform.isMacOS) return;
     try {
       await windowManager.ensureInitialized();
       await windowManager.setPreventClose(true);
@@ -103,13 +108,18 @@ class TrayService with WindowListener {
         _addMenuItem(menu, 'Выход', quit);
         icon.setContextMenu(menu);
       }
-      icon.setContextMenuTrigger(ContextMenuTrigger.rightClicked);
-      icon.addListener((event) {
-        if (event is TrayIconClickedEvent ||
-            event is TrayIconDoubleClickedEvent) {
-          unawaited(showWindow());
-        }
-      });
+      // В строке меню macOS меню принято открывать обычным кликом.
+      icon.setContextMenuTrigger(Platform.isMacOS
+          ? ContextMenuTrigger.clicked
+          : ContextMenuTrigger.rightClicked);
+      if (!Platform.isMacOS) {
+        icon.addListener((event) {
+          if (event is TrayIconClickedEvent ||
+              event is TrayIconDoubleClickedEvent) {
+            unawaited(showWindow());
+          }
+        });
+      }
       icon.setVisible(true);
       _trayIcon = icon;
     } catch (e) {
@@ -182,7 +192,7 @@ class TrayService with WindowListener {
     await _notifications.show(
       title: 'LifeOS продолжает работу в фоне',
       body: 'Открыть приложение или выйти можно через значок '
-          'в системном трее.',
+          '${Platform.isMacOS ? 'в строке меню' : 'в системном трее'}.',
     );
   }
 

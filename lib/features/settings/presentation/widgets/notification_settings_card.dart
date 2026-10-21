@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,7 +54,8 @@ class NotificationSettingsCard extends ConsumerWidget {
               ],
             ),
             Text(
-              'Системные уведомления Windows. Напоминания приходят только '
+              'Системные уведомления ${Platform.isMacOS ? 'macOS' : 'Windows'}. '
+              'Напоминания приходят только '
               'от включённых разделов, не чаще раза в день по каждому типу.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: colorScheme.onSurfaceVariant),

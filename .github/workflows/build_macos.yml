@@ -1,0 +1,71 @@
+# Сборка LifeOS для macOS и загрузка LifeOS-macOS.zip в GitHub Release.
+# Windows-инсталлятор (LifeOS-Setup.exe) собирается локально через build_installer.ps1.
+name: Build macOS
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Тег релиза, к которому прикрепить LifeOS-macOS.zip (например, v1.4.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-macos-${{ github.event.release.tag_name || inputs.tag_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG_NAME }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Restore key.json
+        env:
+          KEY_JSON: ${{ secrets.KEY_JSON }}
+        run: |
+          if [ -z "$KEY_JSON" ]; then
+            echo "::error::Secret KEY_JSON is not set"
+            exit 1
+          fi
+          printf '%s' "$KEY_JSON" > key.json
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS release
+        run: flutter build macos --release --dart-define-from-file=key.json
+
+      - name: Package LifeOS.app
+        working-directory: build/macos/Build/Products/Release
+        run: ditto -c -k --sequesterRsrc --keepParent LifeOS.app LifeOS-macOS.zip
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$TAG_NAME" \
+            build/macos/Build/Products/Release/LifeOS-macOS.zip \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Remove key.json
+        if: always()
+        run: rm -f key.json

@@ -8,24 +8,29 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 /// Тот же флаг проверяет нативный раннер (windows/runner/utils.h).
 const String launchMinimizedArg = '--minimized';
 
-/// Автозапуск с Windows: запись `LifeOS` в
-/// `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+/// Автозапуск при входе в систему.
+///
+/// Windows: запись `LifeOS` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+/// macOS: Login Item через SMAppService (канал в `MainFlutterWindow.swift`);
+/// путь к бандлу и аргументы система не использует.
 class AutostartService {
   static const String appName = 'LifeOS';
 
   static bool _initialized = false;
 
-  /// Автозапуск доступен: платформа Windows и [setup] вызван в `main`.
+  /// Автозапуск доступен: платформа Windows/macOS и [setup] вызван в `main`.
   static bool get isAvailable => _initialized;
 
   /// Задаёт имя записи и команду запуска. Вызывается один раз в `main`.
   static void setup() {
-    if (!Platform.isWindows) return;
+    if (!Platform.isWindows && !Platform.isMacOS) return;
     launchAtStartup.setup(
       appName: appName,
-      // Путь в кавычках: каталог установки содержит пробелы («Life OS»).
-      appPath: '"${Platform.resolvedExecutable}"',
-      args: const [launchMinimizedArg],
+      // Путь в кавычках: каталог установки Windows содержит пробелы («Life OS»).
+      appPath: Platform.isWindows
+          ? '"${Platform.resolvedExecutable}"'
+          : Platform.resolvedExecutable,
+      args: Platform.isWindows ? const [launchMinimizedArg] : const [],
     );
     _initialized = true;
   }

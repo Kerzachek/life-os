@@ -79,18 +79,36 @@ class Release {
   /// Версия из tag_name (`v1.2.3` → `1.2.3`); null, если тег не semver.
   Version? get version => parseVersion(tagName);
 
-  /// Инсталлятор для Windows: сначала *setup*.exe, затем любой .exe, затем .zip.
-  ReleaseAsset? get installerAsset {
+  /// Файл обновления для текущей платформы.
+  ReleaseAsset? get installerAsset =>
+      Platform.isMacOS ? macosAsset : windowsAsset;
+
+  /// Инсталлятор для Windows: `LifeOS-Setup.exe`, затем *setup*.exe, затем любой .exe.
+  ReleaseAsset? get windowsAsset {
     final exes = assets.where((a) => a.isExe).toList();
+    for (final asset in exes) {
+      if (asset.name == windowsAssetName) return asset;
+    }
     for (final asset in exes) {
       if (asset.name.toLowerCase().contains('setup')) return asset;
     }
-    if (exes.isNotEmpty) return exes.first;
-    for (final asset in assets) {
-      if (asset.isZip) return asset;
+    return exes.isNotEmpty ? exes.first : null;
+  }
+
+  /// Архив бандла для macOS: `LifeOS-macOS.zip`, затем любой *macos*.zip.
+  ReleaseAsset? get macosAsset {
+    final zips = assets.where((a) => a.isZip).toList();
+    for (final asset in zips) {
+      if (asset.name == macosAssetName) return asset;
+    }
+    for (final asset in zips) {
+      if (asset.name.toLowerCase().contains('macos')) return asset;
     }
     return null;
   }
+
+  static const String windowsAssetName = 'LifeOS-Setup.exe';
+  static const String macosAssetName = 'LifeOS-macOS.zip';
 
   factory Release.fromJson(Map<String, dynamic> json) => Release(
         tagName: json['tag_name'] as String? ?? '',
@@ -179,26 +197,37 @@ class UpdateService {
     return latest > current ? release : null;
   }
 
-  /// Скачивает инсталлятор потоком, запускает его отдельно и завершает
-  /// приложение, чтобы снять блокировки с файлов в каталоге установки.
+  /// Скачивает обновление потоком, запускает установку отдельным процессом
+  /// и завершает приложение, чтобы снять блокировки с файлов.
+  ///
+  /// Windows: тихий запуск `LifeOS-Setup.exe`.
+  /// macOS: замена текущего `LifeOS.app` содержимым `LifeOS-macOS.zip`
+  /// и перезапуск.
   Future<void> downloadAndInstallUpdate(
     Release release,
     void Function(double progress) onProgress,
   ) async {
-    if (!Platform.isWindows) {
+    if (!Platform.isWindows && !Platform.isMacOS) {
       throw const UpdateException(
-          'Автоустановка поддерживается только на Windows');
+          'Автоустановка поддерживается только на Windows и macOS');
     }
     final asset = release.installerAsset;
     if (asset == null) {
-      throw const UpdateException('В релизе нет файла установщика');
+      throw UpdateException(Platform.isMacOS
+          ? 'В релизе нет архива для macOS'
+          : 'В релизе нет файла установщика');
     }
 
-    final file = await _download(asset, onProgress);
-    final installer =
-        asset.isZip ? await _extractInstaller(file) : file;
-
-    await _launchInstaller(installer);
+    if (Platform.isMacOS) {
+      // Проверяем права до загрузки, чтобы не качать впустую.
+      final bundle = _currentMacAppBundle();
+      final file = await _download(asset, onProgress);
+      final newApp = await _extractMacApp(file);
+      await _launchMacReplacer(newApp, bundle);
+    } else {
+      final installer = await _download(asset, onProgress);
+      await _launchInstaller(installer);
+    }
     // exit(0), а не закрытие окна: крестик перехвачен для сворачивания в трей
     // (setPreventClose), и окно не должно пережить запуск установщика.
     TrayService.removeTrayIcon();
@@ -251,38 +280,94 @@ class UpdateService {
     return target;
   }
 
-  /// Распаковывает zip штатным PowerShell и ищет внутри .exe-инсталлятор.
-  Future<File> _extractInstaller(File zip) async {
+  /// Путь к запущенному `.app` (…/LifeOS.app/Contents/MacOS/LifeOS → …/LifeOS.app)
+  /// с проверкой, что его можно заменить.
+  Directory _currentMacAppBundle() {
+    final bundle =
+        p.dirname(p.dirname(p.dirname(Platform.resolvedExecutable)));
+    if (!bundle.endsWith('.app')) {
+      throw const UpdateException('Не удалось определить путь к приложению');
+    }
+    // Gatekeeper запускает неподписанные приложения из «Загрузок»
+    // с копии только для чтения.
+    if (bundle.contains('/AppTranslocation/')) {
+      throw const UpdateException(
+          'Переместите LifeOS в папку «Программы» и запустите снова');
+    }
+    final probe = File(p.join(p.dirname(bundle), '.lifeos_update_probe'));
+    try {
+      probe.writeAsStringSync('');
+      probe.deleteSync();
+    } on FileSystemException {
+      throw UpdateException(
+          'Нет прав на запись в ${p.dirname(bundle)}, обновите вручную');
+    }
+    return Directory(bundle);
+  }
+
+  /// Распаковывает архив через `ditto` (сохраняет симлинки фреймворков)
+  /// и ищет внутри `.app`.
+  Future<Directory> _extractMacApp(File zip) async {
     final outDir = Directory(p.join(zip.parent.path, 'extracted'));
-    final result = await Process.run('powershell', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      'Expand-Archive -LiteralPath "${zip.path}" '
-          '-DestinationPath "${outDir.path}" -Force',
-    ]);
+    final result = await Process.run(
+      '/usr/bin/ditto',
+      ['-x', '-k', zip.path, outDir.path],
+    );
     if (result.exitCode != 0) {
       throw const UpdateException('Не удалось распаковать архив обновления');
     }
 
-    final exes = await outDir
-        .list(recursive: true)
-        .where((e) => e is File && e.path.toLowerCase().endsWith('.exe'))
-        .cast<File>()
+    final apps = await outDir
+        .list()
+        .where((e) => e is Directory && e.path.endsWith('.app'))
+        .cast<Directory>()
         .toList();
-    if (exes.isEmpty) {
-      throw const UpdateException('В архиве нет установщика (.exe)');
+    if (apps.isEmpty) {
+      throw const UpdateException('В архиве нет приложения (.app)');
     }
-    return exes.firstWhere(
-      (f) => p.basename(f.path).toLowerCase().contains('setup'),
-      orElse: () => exes.first,
+    return apps.firstWhere(
+      (d) => p.basename(d.path) == 'LifeOS.app',
+      orElse: () => apps.first,
     );
+  }
+
+  /// Скрипт ждёт выхода приложения, подменяет бандл (с откатом при ошибке),
+  /// снимает карантин и запускает новую версию.
+  static const String _macReplaceScript = r'''
+PID="$1"; NEW="$2"; TARGET="$3"
+while kill -0 "$PID" 2>/dev/null; do sleep 0.5; done
+rm -rf "$TARGET.old"
+if mv "$TARGET" "$TARGET.old"; then
+  if /usr/bin/ditto "$NEW" "$TARGET"; then
+    rm -rf "$TARGET.old"
+  else
+    rm -rf "$TARGET"
+    mv "$TARGET.old" "$TARGET"
+  fi
+fi
+/usr/bin/xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null
+/usr/bin/open "$TARGET"
+''';
+
+  Future<void> _launchMacReplacer(Directory newApp, Directory target) async {
+    final script = File(p.join(newApp.parent.parent.path, 'replace.sh'));
+    // Исходник может быть с CRLF (Windows-checkout), а sh не терпит \r.
+    await script.writeAsString(_macReplaceScript.replaceAll('\r\n', '\n'));
+    try {
+      await Process.start(
+        '/bin/sh',
+        [script.path, '$pid', newApp.path, target.path],
+        mode: ProcessStartMode.detached,
+      );
+    } on ProcessException catch (e) {
+      throw UpdateException('Не удалось запустить обновление: ${e.message}');
+    }
   }
 
   Future<void> _launchInstaller(File installer) async {
     // Inno Setup в тихом режиме; [Run] в installer.iss перезапускает приложение.
     const args = [
-      '/SILENT',
+      '/VERYSILENT',
       '/SP-',
       '/SUPPRESSMSGBOXES',
       '/NORESTART',
