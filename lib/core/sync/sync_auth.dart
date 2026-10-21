@@ -145,6 +145,34 @@ class DesktopLoopbackAuth implements SyncAuth {
   }
 }
 
+/// Ошибка входа через Google с понятным текстом для баннера синхронизации.
+class GoogleSignInFailure implements Exception {
+  final String message;
+
+  const GoogleSignInFailure(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Переводит [GoogleSignInException] в подсказку. Код 28444 (Credential
+/// Manager) означает, что в Google Cloud нет Android-клиента с этим пакетом
+/// и SHA-1 или Server Client ID не является Web-клиентом того же проекта.
+GoogleSignInFailure describeGoogleSignInError(GoogleSignInException e) {
+  final details = '${e.description ?? ''} ${e.details ?? ''}';
+  if (details.contains('28444') ||
+      e.code == GoogleSignInExceptionCode.clientConfigurationError ||
+      e.code == GoogleSignInExceptionCode.providerConfigurationError) {
+    return GoogleSignInFailure(
+      'Google Cloud не настроен для Android (${e.description ?? e.code.name}). '
+      'Проверьте Android OAuth-клиент (пакет и SHA-1) и что '
+      'GOOGLE_SERVER_CLIENT_ID — Web-клиент того же проекта.',
+    );
+  }
+  return GoogleSignInFailure(
+      'Не удалось войти в Google: ${e.description ?? e.code.name}');
+}
+
 /// Android / iOS: нативный Google Sign-In (`google_sign_in` v7).
 class MobileGoogleSignInAuth implements SyncAuth {
   static bool _initialized = false;
@@ -182,10 +210,17 @@ class MobileGoogleSignInAuth implements SyncAuth {
   @override
   Future<bool> signIn() async {
     final gs = await _instance();
-    final account = await gs.authenticate(scopeHint: GoogleSyncConfig.scopes);
-    await account.authorizationClient.authorizeScopes(GoogleSyncConfig.scopes);
-    _account = account;
-    return true;
+    try {
+      final account = await gs.authenticate(scopeHint: GoogleSyncConfig.scopes);
+      await account.authorizationClient
+          .authorizeScopes(GoogleSyncConfig.scopes);
+      _account = account;
+      return true;
+    } on GoogleSignInException catch (e) {
+      // Пользователь закрыл окно входа — не ошибка.
+      if (e.code == GoogleSignInExceptionCode.canceled) return false;
+      throw describeGoogleSignInError(e);
+    }
   }
 
   @override

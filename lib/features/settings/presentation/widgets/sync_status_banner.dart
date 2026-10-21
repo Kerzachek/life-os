@@ -68,7 +68,7 @@ class SyncStatusBanner extends StatelessWidget {
                 if (showError)
                   Text(
                     state.errorMessage!,
-                    maxLines: 2,
+                    maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11, color: muted),
                   ),

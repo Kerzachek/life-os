@@ -136,14 +136,28 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       final selected = items.indexWhere((item) => item.index == effectiveIndex);
       return Scaffold(
         body: SafeArea(bottom: false, child: screens),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: selected < 0 ? 0 : selected,
-          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-          onDestinationSelected: (i) => select(items[i].index),
-          destinations: [
-            for (final item in items)
-              NavigationDestination(icon: Icon(item.icon), label: item.label),
-          ],
+        // До 6 пунктов на ~360dp: мелкий шрифт без системного увеличения,
+        // иначе «Настройки» переносится на две строки.
+        bottomNavigationBar: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.0,
+          child: NavigationBarTheme(
+            data: NavigationBarTheme.of(context).copyWith(
+              labelTextStyle: const WidgetStatePropertyAll(
+                TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: selected < 0 ? 0 : selected,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.onlyShowSelected,
+              onDestinationSelected: (i) => select(items[i].index),
+              destinations: [
+                for (final item in items)
+                  NavigationDestination(
+                      icon: Icon(item.icon), label: item.label),
+              ],
+            ),
+          ),
         ),
       );
     }
