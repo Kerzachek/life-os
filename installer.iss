@@ -1,6 +1,6 @@
 ; Скрипт сборки инсталлятора Life OS через Inno Setup
 #define MyAppName "Life OS"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "Personal"
 #define MyAppExeName "home_organizer.exe"
 #define MyAppSourceDir "build\windows\x64\runner\Release"
@@ -18,6 +18,8 @@ OutputBaseFilename=LifeOS-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=windows\runner\resources\app_icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 
 ; Закрывать запущенный экземпляр перед обновлением
 CloseApplications=yes
