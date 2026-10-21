@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../settings/presentation/providers/settings_provider.dart';
 import 'life_score_card.dart';
+import 'weekly_progress_card.dart';
 
-class OverviewHeader extends StatelessWidget {
+class OverviewHeader extends ConsumerWidget {
   const OverviewHeader({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final now = DateTime.now();
+    // Life Score строится по Задачам и Привычкам — без них он не нужен.
+    final showScore =
+        WeeklyProgressCard.isVisibleFor(ref.watch(enabledModulesProvider));
 
     final dateStr = DateFormat('EEEE, dd.MM.yyyy').format(now);
 
@@ -47,8 +53,10 @@ class OverviewHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          const LifeScoreCard(),
+          if (showScore) ...[
+            const SizedBox(width: 8),
+            const LifeScoreCard(),
+          ],
         ],
       ),
     );

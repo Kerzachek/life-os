@@ -4,39 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/module_toggle_tile.dart';
+import '../widgets/notification_settings_card.dart';
 import '../widgets/sync_settings_card.dart';
 import '../widgets/update_settings_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static const String lastModuleMessage =
-      'Нельзя скрыть все разделы: хотя бы один должен оставаться активным';
-
-  Future<void> _onToggle(
-    BuildContext context,
-    WidgetRef ref,
-    AppModule module,
-    bool value,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final accepted = await ref
-        .read(settingsControllerProvider)
-        .setModuleEnabled(module, value);
-
-    if (!accepted) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(lastModuleMessage),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            width: 460,
-          ),
-        );
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -102,7 +75,8 @@ class SettingsScreen extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: Text(
-                          'Отключённые разделы скрываются из бокового меню. '
+                          'Отключённые разделы скрываются из бокового меню и '
+                          'Дашборда, их уведомления не отправляются. '
                           'Данные при этом не удаляются.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
@@ -115,8 +89,9 @@ class SettingsScreen extends ConsumerWidget {
                           key: ValueKey(module),
                           module: module,
                           enabled: enabledModules.contains(module),
-                          onChanged: (value) =>
-                              _onToggle(context, ref, module, value),
+                          onChanged: (value) => ref
+                              .read(settingsControllerProvider)
+                              .setModuleEnabled(module, value),
                         ),
                         if (module != AppModule.values.last)
                           const Divider(height: 1),
@@ -125,6 +100,8 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              const NotificationSettingsCard(),
               const SizedBox(height: 16),
               const SyncSettingsCard(),
               const SizedBox(height: 16),

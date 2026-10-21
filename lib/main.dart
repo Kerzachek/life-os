@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/services/notification_scheduler.dart';
+import 'core/services/notification_service.dart';
 import 'core/sync/google_drive_sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_sidebar.dart';
@@ -12,7 +14,9 @@ import 'features/settings/presentation/providers/settings_provider.dart';
 import 'features/settings/presentation/screens/settings_screen.dart';
 import 'features/tasks/presentation/screens/tasks_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
   runApp(const HomeOrganizerApp());
 }
 
@@ -51,6 +55,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(googleDriveSyncServiceProvider.notifier).start();
+      ref.read(notificationSchedulerProvider).start();
+    });
+  }
+
+  void _openSettings() {
+    setState(() {
+      _currentIndex = AppSidebar.settingsIndex;
     });
   }
 
@@ -63,7 +74,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildScreen(int index) {
     switch (index) {
       case 0:
-        return const OverviewScreen();
+        return OverviewScreen(onOpenSettings: _openSettings);
       case 1:
         return const TasksScreen();
       case 2:
@@ -78,6 +89,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final enabledModules = ref.watch(enabledModulesProvider);
+    // Держит планировщик уведомлений (и его подписки на данные) активным.
+    ref.watch(notificationSchedulerProvider);
 
     bool isVisible(int index) {
       final module = _moduleByIndex[index];

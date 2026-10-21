@@ -4,13 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_organizer/core/database/app_database.dart';
 import 'package:home_organizer/core/database/database_provider.dart';
+import 'package:home_organizer/features/overview/presentation/widgets/dashboard_empty_state.dart';
+import 'package:home_organizer/features/settings/data/repositories/settings_repository.dart';
 import 'package:home_organizer/features/settings/domain/app_module.dart';
 import 'package:home_organizer/features/settings/presentation/providers/settings_provider.dart';
-import 'package:home_organizer/features/settings/presentation/screens/settings_screen.dart';
+import 'package:home_organizer/features/settings/presentation/widgets/module_toggle_tile.dart';
 import 'package:home_organizer/main.dart';
 
 void main() {
-  test('нельзя отключить последний активный модуль', () async {
+  test('можно отключить все разделы и выключить уведомления', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final container = ProviderContainer(
       overrides: [appDatabaseProvider.overrideWithValue(db)],
@@ -21,15 +23,23 @@ void main() {
     });
 
     final controller = container.read(settingsControllerProvider);
+    final repo = container.read(settingsRepositoryProvider);
 
-    expect(await controller.setModuleEnabled(AppModule.tasks, false), isTrue);
-    expect(await controller.setModuleEnabled(AppModule.habits, false), isTrue);
-    expect(await controller.setModuleEnabled(AppModule.finance, false), isFalse);
-    expect(await controller.setModuleEnabled(AppModule.finance, true), isTrue);
+    expect(resolveNotificationsEnabled(await repo.readAll()), isTrue);
+
+    for (final module in AppModule.values) {
+      await controller.setModuleEnabled(module, false);
+    }
+    await controller.setNotificationsEnabled(false);
+
+    final settings = await repo.readAll();
+    expect(resolveEnabledModules(settings), isEmpty);
+    expect(resolveNotificationsEnabled(settings), isFalse);
   });
 
-  testWidgets('отключение раздела скрывает пункт меню, SnackBar для последнего',
-      (tester) async {
+  testWidgets(
+      'отключение разделов скрывает пункты меню, быстрые действия, '
+      'прогресс и показывает пустое состояние', (tester) async {
     tester.view.physicalSize = const Size(1600, 1000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -45,28 +55,48 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Задачи'), findsWidgets);
+    expect(find.text('+ Задача'), findsOneWidget);
+    expect(find.text('+ Привычка'), findsOneWidget);
+    expect(find.text('+ Операция'), findsOneWidget);
+    expect(find.text('Прогресс и Продуктивность'), findsOneWidget);
 
-    await tester.tap(find.text('Настройки'));
+    Future<void> toggle(int index) async {
+      await tester.tap(find.text('Настройки'));
+      await tester.pumpAndSettle();
+      final switches = find.descendant(
+        of: find.byType(ModuleToggleTile),
+        matching: find.byType(Switch),
+      );
+      expect(switches, findsNWidgets(3));
+      await tester.tap(switches.at(index));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Дашборд'));
+      await tester.pumpAndSettle();
+    }
+
+    // Задачи выключены: нет пункта меню, кнопки и бара задач.
+    await toggle(0);
+    expect(find.text('Задачи'), findsNothing);
+    expect(find.text('+ Задача'), findsNothing);
+    expect(find.text('Выполнение задач'), findsNothing);
+    expect(find.text('Привычки за сегодня'), findsOneWidget);
+
+    // Привычки тоже выключены: блок прогресса скрыт целиком.
+    await toggle(1);
+    expect(find.text('+ Привычка'), findsNothing);
+    expect(find.text('+ Челлендж'), findsNothing);
+    expect(find.text('Привычки и Стрики'), findsNothing);
+    expect(find.text('Прогресс и Продуктивность'), findsNothing);
+    expect(find.text('+ Операция'), findsOneWidget);
+
+    // Все разделы выключены: пустое состояние с переходом в Настройки.
+    await toggle(2);
+    expect(find.text(DashboardEmptyState.title), findsOneWidget);
+    expect(find.text('Быстрые действия'), findsNothing);
+
+    await tester.tap(find.text('Открыть Настройки'));
     await tester.pumpAndSettle();
-
-    final switches = find.byType(Switch);
-    expect(switches, findsNWidgets(3));
-
-    // Отключаем Задачи -> пункт исчезает из сайдбара.
-    await tester.tap(switches.at(0));
-    await tester.pumpAndSettle();
-    expect(find.text('Привычки'), findsOneWidget); // только в сайдбаре
-    expect(find.text('Задачи'), findsOneWidget); // только в карточке настроек
-
-    // Отключаем Привычки и затем пытаемся отключить Финансы (последний).
-    await tester.tap(switches.at(1));
-    await tester.pumpAndSettle();
-    await tester.tap(switches.at(2));
-    await tester.pump();
-
-    expect(find.text(SettingsScreen.lastModuleMessage), findsOneWidget);
-    expect(tester.widget<Switch>(switches.at(2)).value, isTrue);
+    expect(find.byType(ModuleToggleTile), findsNWidgets(3));
 
     // Размонтируем дерево и даём Drift закрыть потоки (иначе остаётся таймер).
     await tester.pumpWidget(const SizedBox());

@@ -3,16 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../domain/app_module.dart';
 
+/// Ключ глобального переключателя системных уведомлений.
+const String notificationsEnabledKey = 'notifications_enabled';
+
 final rawSettingsStreamProvider = StreamProvider<Map<String, String>>((ref) {
   return ref.watch(settingsRepositoryProvider).watchAll();
 });
 
-Set<AppModule> _resolveEnabled(Map<String, String> settings) {
+/// Включённые разделы по карте настроек.
+Set<AppModule> resolveEnabledModules(Map<String, String> settings) {
   return {
     for (final module in AppModule.values)
       if (_parseBool(settings[module.storageKey]) ?? AppModule.defaultEnabled)
         module,
   };
+}
+
+/// Включены ли системные уведомления (по умолчанию — да).
+bool resolveNotificationsEnabled(Map<String, String> settings) {
+  return _parseBool(settings[notificationsEnabledKey]) ?? true;
 }
 
 bool? _parseBool(String? raw) {
@@ -24,7 +33,14 @@ bool? _parseBool(String? raw) {
 final enabledModulesProvider = Provider<Set<AppModule>>((ref) {
   final settings = ref.watch(rawSettingsStreamProvider).value;
   if (settings == null) return AppModule.values.toSet();
-  return _resolveEnabled(settings);
+  return resolveEnabledModules(settings);
+});
+
+/// Состояние глобального переключателя уведомлений.
+final notificationsEnabledProvider = Provider<bool>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  if (settings == null) return true;
+  return resolveNotificationsEnabled(settings);
 });
 
 final settingsControllerProvider = Provider<SettingsController>((ref) {
@@ -36,19 +52,13 @@ class SettingsController {
 
   SettingsController(this._repository);
 
-  /// Включает/отключает раздел.
-  ///
-  /// Возвращает `false`, если действие отклонено: нельзя отключить
-  /// последний активный раздел.
-  Future<bool> setModuleEnabled(AppModule module, bool enabled) async {
-    if (!enabled) {
-      final current = _resolveEnabled(await _repository.readAll());
-      final remaining = current.where((m) => m != module);
-      if (remaining.isEmpty) {
-        return false;
-      }
-    }
-    await _repository.setValue(module.storageKey, enabled.toString());
-    return true;
+  /// Включает/отключает раздел. Отключить можно все разделы:
+  /// Дашборд в этом случае показывает пустое состояние.
+  Future<void> setModuleEnabled(AppModule module, bool enabled) {
+    return _repository.setValue(module.storageKey, enabled.toString());
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) {
+    return _repository.setValue(notificationsEnabledKey, enabled.toString());
   }
 }

@@ -2,42 +2,58 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../habits/presentation/providers/habits_provider.dart';
+import '../../../settings/domain/app_module.dart';
+import '../../../settings/presentation/providers/settings_provider.dart';
+import '../../../tasks/domain/task_status.dart';
 import '../../../tasks/presentation/providers/tasks_provider.dart';
+import '../../domain/productivity.dart';
 
+/// Блок «Прогресс и продуктивность». Показывает прогресс-бары только
+/// включённых разделов; общий процент считается по ним же.
+///
+/// Если отключены и Задачи, и Привычки — карточка не отображается.
 class WeeklyProgressCard extends ConsumerWidget {
   const WeeklyProgressCard({super.key});
+
+  /// Нужно ли показывать блок при данном наборе разделов.
+  static bool isVisibleFor(Set<AppModule> enabled) =>
+      enabled.contains(AppModule.tasks) || enabled.contains(AppModule.habits);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final enabled = ref.watch(enabledModulesProvider);
+    final tasksOn = enabled.contains(AppModule.tasks);
+    final habitsOn = enabled.contains(AppModule.habits);
 
-    final tasksAsync = ref.watch(rawTasksStreamProvider);
-    final habitsAsync = ref.watch(habitsWithStatusProvider);
+    if (!tasksOn && !habitsOn) return const SizedBox.shrink();
 
+    // Данные отключённого раздела не читаются.
     int totalTasks = 0;
     int completedTasks = 0;
-    double taskRatio = 0.0;
-
-    tasksAsync.whenData((tasks) {
+    if (tasksOn) {
+      final tasks = ref.watch(rawTasksStreamProvider).value ?? const [];
       totalTasks = tasks.length;
-      completedTasks = tasks.where((t) => t.status == 2).length;
-      if (totalTasks > 0) {
-        taskRatio = completedTasks / totalTasks;
-      }
-    });
+      completedTasks =
+          tasks.where((t) => t.status == TaskStatus.completed.value).length;
+    }
 
     int totalHabits = 0;
     int completedHabitsToday = 0;
-    double habitRatio = 0.0;
-
-    habitsAsync.whenData((habits) {
+    if (habitsOn) {
+      final habits = ref.watch(habitsWithStatusProvider).value ?? const [];
       totalHabits = habits.length;
       completedHabitsToday = habits.where((h) => h.isCompletedToday).length;
-      if (totalHabits > 0) {
-        habitRatio = completedHabitsToday / totalHabits;
-      }
-    });
+    }
+
+    final taskRatio = totalTasks > 0 ? completedTasks / totalTasks : null;
+    final habitRatio =
+        totalHabits > 0 ? completedHabitsToday / totalHabits : null;
+    final overall = overallProductivity([
+      if (tasksOn) taskRatio,
+      if (habitsOn) habitRatio,
+    ]);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -53,87 +69,111 @@ class WeeklyProgressCard extends ConsumerWidget {
             children: [
               Icon(Icons.insights_rounded, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                'Прогресс и Продуктивность',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              Expanded(
+                child: Text(
+                  'Прогресс и Продуктивность',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Выполнение задач',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+              if (overall != null)
+                Container(
+                  key: const ValueKey('overall_productivity'),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  Text(
-                    '$completedTasks / $totalTasks (${(taskRatio * 100).toInt()}%)',
-                    style: const TextStyle(
-                      fontSize: 12,
+                  child: Text(
+                    'Итого ${(overall * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: colorScheme.primary,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: taskRatio,
-                  minHeight: 8,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  color: colorScheme.primary,
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Привычки за сегодня',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    '$completedHabitsToday / $totalHabits (${(habitRatio * 100).toInt()}%)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: habitRatio,
-                  minHeight: 8,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  color: Colors.orange,
-                ),
-              ),
-            ],
-          ),
+          if (tasksOn) ...[
+            const SizedBox(height: 16),
+            _ProgressRow(
+              label: 'Выполнение задач',
+              done: completedTasks,
+              total: totalTasks,
+              color: colorScheme.primary,
+            ),
+          ],
+          if (habitsOn) ...[
+            const SizedBox(height: 16),
+            _ProgressRow(
+              label: 'Привычки за сегодня',
+              done: completedHabitsToday,
+              total: totalHabits,
+              color: Colors.orange,
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _ProgressRow extends StatelessWidget {
+  final String label;
+  final int done;
+  final int total;
+  final Color color;
+
+  const _ProgressRow({
+    required this.label,
+    required this.done,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final ratio = total > 0 ? done / total : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              '$done / $total (${(ratio * 100).toInt()}%)',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 8,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }
