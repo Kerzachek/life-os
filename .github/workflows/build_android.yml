@@ -1,0 +1,94 @@
+# Сборка LifeOS для Android и загрузка LifeOS-Android.apk в GitHub Release.
+# Подпись: ключ из секретов ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
+# ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD. Ключ должен быть одним и тем же
+# для всех релизов — иначе обновление поверх установленной версии невозможно.
+name: Build Android
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Тег релиза, к которому прикрепить LifeOS-Android.apk (например, v1.5.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-android-${{ github.event.release.tag_name || inputs.tag_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG_NAME }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Restore key.json
+        env:
+          KEY_JSON: ${{ secrets.KEY_JSON }}
+        run: |
+          if [ -z "$KEY_JSON" ]; then
+            echo "::error::Secret KEY_JSON is not set"
+            exit 1
+          fi
+          printf '%s' "$KEY_JSON" > key.json
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Android signing secrets are not set (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          {
+            echo "storeFile=upload-keystore.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --dart-define-from-file=key.json
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk LifeOS-Android.apk
+          gh release upload "$TAG_NAME" LifeOS-Android.apk \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Remove secrets
+        if: always()
+        run: rm -f key.json android/key.properties android/app/upload-keystore.jks

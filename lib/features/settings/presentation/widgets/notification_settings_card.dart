@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/platform_info.dart';
 import '../providers/settings_provider.dart';
 
-/// Блок «Уведомления»: глобальный переключатель системных уведомлений Windows.
+/// Блок «Уведомления»: глобальный переключатель системных уведомлений.
 class NotificationSettingsCard extends ConsumerWidget {
   const NotificationSettingsCard({super.key});
 
@@ -54,7 +53,7 @@ class NotificationSettingsCard extends ConsumerWidget {
               ],
             ),
             Text(
-              'Системные уведомления ${Platform.isMacOS ? 'macOS' : 'Windows'}. '
+              'Системные уведомления $platformDisplayName. '
               'Напоминания приходят только '
               'от включённых разделов, не чаще раза в день по каждому типу.',
               style: theme.textTheme.bodySmall

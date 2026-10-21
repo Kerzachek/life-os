@@ -50,3 +50,9 @@ app.*.map.json
 # Секретные ключи для сборки приложения
 key.json
 models.json
+
+# Ключ подписи Android (никогда не коммитить)
+*.jks
+lifeos-upload.jks
+*.keystore
+android/key.properties

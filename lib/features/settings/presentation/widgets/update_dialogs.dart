@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -138,6 +140,8 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           _installing = value >= 1.0;
         });
       });
+      // Android: установщик открыт поверх приложения, диалог больше не нужен.
+      if (Platform.isAndroid && mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e is UpdateException ? e.message : '$e');
@@ -176,7 +180,9 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
                     const SizedBox(height: 10),
                     Text(
                       _installing
-                          ? 'Запуск установщика… Приложение будет закрыто.'
+                          ? Platform.isAndroid
+                              ? 'Открытие установщика…'
+                              : 'Запуск установщика… Приложение будет закрыто.'
                           : '${(_progress * 100).toStringAsFixed(0)}%',
                       style: theme.textTheme.bodyMedium,
                     ),

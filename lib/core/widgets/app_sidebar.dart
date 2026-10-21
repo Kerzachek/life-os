@@ -37,7 +37,7 @@ class AppSidebar extends ConsumerWidget {
   /// Количество экранов в IndexedStack.
   static const int screenCount = 6;
 
-  static const List<NavigationItemData> _navItems = [
+  static const List<NavigationItemData> navItems = [
     NavigationItemData(index: dashboardIndex, label: 'Дашборд', icon: Icons.grid_view_rounded),
     NavigationItemData(index: 4, label: 'Рутина', icon: Icons.wb_sunny_outlined, module: AppModule.routine),
     NavigationItemData(index: 1, label: 'Задачи', icon: Icons.task_alt_rounded, module: AppModule.tasks),
@@ -46,15 +46,19 @@ class AppSidebar extends ConsumerWidget {
     NavigationItemData(index: settingsIndex, label: 'Настройки', icon: Icons.settings_rounded),
   ];
 
+  /// Пункты меню без отключённых разделов. Общий список для бокового меню
+  /// и нижней навигации в мобильном режиме.
+  static List<NavigationItemData> visibleNavItems(Set<AppModule> enabledModules) => navItems
+      .where((item) => item.module == null || enabledModules.contains(item.module))
+      .toList();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final enabledModules = ref.watch(enabledModulesProvider);
     final appVersion = ref.watch(currentAppVersionProvider).value;
-    final visibleItems = _navItems
-        .where((item) => item.module == null || enabledModules.contains(item.module))
-        .toList();
+    final visibleItems = visibleNavItems(enabledModules);
 
     return Container(
       width: 200,

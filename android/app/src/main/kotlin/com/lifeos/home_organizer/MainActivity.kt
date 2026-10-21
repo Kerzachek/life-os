@@ -1,4 +1,4 @@
-package com.example.home_organizer
+package com.lifeos.home_organizer
 
 import io.flutter.embedding.android.FlutterActivity
 

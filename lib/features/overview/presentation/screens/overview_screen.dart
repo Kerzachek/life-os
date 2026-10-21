@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../../../finance/presentation/widgets/safe_to_spend_card.dart';
 import '../../../settings/domain/app_module.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
@@ -54,7 +55,7 @@ class OverviewScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(isMobileLayout(context) ? 12 : 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

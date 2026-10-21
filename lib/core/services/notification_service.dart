@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 
@@ -9,16 +10,24 @@ import '../../features/settings/domain/app_module.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
 
 /// Системные всплывающие уведомления: Toast Notifications в Windows,
-/// Notification Center в macOS.
+/// Notification Center в macOS, шторка уведомлений в Android.
 ///
 /// Перед отправкой проверяет настройки: глобальный переключатель
 /// уведомлений и включён ли раздел-источник ([AppModule]).
 class NotificationService {
   static const String appName = 'LifeOS';
 
+  static const String _androidChannelId = 'lifeos_reminders';
+  static const String _androidChannelName = 'Напоминания LifeOS';
+
   static bool _initialized = false;
 
-  /// Уведомления доступны: платформа Windows/macOS и [initialize] прошёл успешно.
+  /// Плагин уведомлений Android; на десктопе — `null` (там local_notifier).
+  static FlutterLocalNotificationsPlugin? _androidPlugin;
+  static int _androidNextId = 0;
+
+  /// Уведомления доступны: платформа Windows/macOS/Android
+  /// и [initialize] прошёл успешно.
   static bool get isAvailable => _initialized;
 
   final SettingsRepository _settings;
@@ -28,12 +37,35 @@ class NotificationService {
   /// Регистрирует приложение в центре уведомлений (в Windows создаёт ярлык
   /// с AppUserModelID при необходимости). Вызывается один раз в `main`.
   static Future<void> initialize() async {
+    if (Platform.isAndroid) return _initializeAndroid();
     if (!Platform.isWindows && !Platform.isMacOS) return;
     try {
       await localNotifier.setup(
         appName: appName,
         shortcutPolicy: ShortcutPolicy.requireCreate,
       );
+      _initialized = true;
+    } catch (e) {
+      debugPrint('NotificationService: инициализация не удалась: $e');
+    }
+  }
+
+  /// Android: на 13+ запрашивает разрешение POST_NOTIFICATIONS. Отказ не
+  /// блокирует запуск — система просто не покажет уведомления, пока
+  /// пользователь не выдаст разрешение в настройках.
+  static Future<void> _initializeAndroid() async {
+    try {
+      final plugin = FlutterLocalNotificationsPlugin();
+      await plugin.initialize(
+        settings: const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
+      );
+      await plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+      _androidPlugin = plugin;
       _initialized = true;
     } catch (e) {
       debugPrint('NotificationService: инициализация не удалась: $e');
@@ -58,10 +90,28 @@ class NotificationService {
   }) async {
     if (!await canNotify(module)) return false;
 
-    final notification = LocalNotification(title: title, body: body);
-    // Пакет хранит каждое уведомление в списке слушателей — освобождаем.
-    notification.onClose = (_) => localNotifier.destroy(notification);
     try {
+      final androidPlugin = _androidPlugin;
+      if (androidPlugin != null) {
+        await androidPlugin.show(
+          id: _androidNextId++,
+          title: title,
+          body: body,
+          notificationDetails: const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _androidChannelId,
+              _androidChannelName,
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
+        return true;
+      }
+
+      final notification = LocalNotification(title: title, body: body);
+      // Пакет хранит каждое уведомление в списке слушателей — освобождаем.
+      notification.onClose = (_) => localNotifier.destroy(notification);
       await notification.show();
       return true;
     } catch (e) {

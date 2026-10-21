@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -49,6 +50,7 @@ class ReleaseAsset {
 
   bool get isExe => name.toLowerCase().endsWith('.exe');
   bool get isZip => name.toLowerCase().endsWith('.zip');
+  bool get isApk => name.toLowerCase().endsWith('.apk');
 
   factory ReleaseAsset.fromJson(Map<String, dynamic> json) => ReleaseAsset(
         name: json['name'] as String? ?? '',
@@ -80,8 +82,19 @@ class Release {
   Version? get version => parseVersion(tagName);
 
   /// Файл обновления для текущей платформы.
-  ReleaseAsset? get installerAsset =>
-      Platform.isMacOS ? macosAsset : windowsAsset;
+  ReleaseAsset? get installerAsset {
+    if (Platform.isAndroid) return androidAsset;
+    return Platform.isMacOS ? macosAsset : windowsAsset;
+  }
+
+  /// APK для Android: `LifeOS-Android.apk`, затем любой .apk.
+  ReleaseAsset? get androidAsset {
+    final apks = assets.where((a) => a.isApk).toList();
+    for (final asset in apks) {
+      if (asset.name == androidAssetName) return asset;
+    }
+    return apks.isNotEmpty ? apks.first : null;
+  }
 
   /// Инсталлятор для Windows: `LifeOS-Setup.exe`, затем *setup*.exe, затем любой .exe.
   ReleaseAsset? get windowsAsset {
@@ -109,6 +122,7 @@ class Release {
 
   static const String windowsAssetName = 'LifeOS-Setup.exe';
   static const String macosAssetName = 'LifeOS-macOS.zip';
+  static const String androidAssetName = 'LifeOS-Android.apk';
 
   factory Release.fromJson(Map<String, dynamic> json) => Release(
         tagName: json['tag_name'] as String? ?? '',
@@ -203,19 +217,29 @@ class UpdateService {
   /// Windows: тихий запуск `LifeOS-Setup.exe`.
   /// macOS: замена текущего `LifeOS.app` содержимым `LifeOS-macOS.zip`
   /// и перезапуск.
+  /// Android: открытие `LifeOS-Android.apk` системным установщиком; приложение
+  /// не завершается — установщик сам закроет его при замене пакета.
   Future<void> downloadAndInstallUpdate(
     Release release,
     void Function(double progress) onProgress,
   ) async {
-    if (!Platform.isWindows && !Platform.isMacOS) {
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isAndroid) {
       throw const UpdateException(
-          'Автоустановка поддерживается только на Windows и macOS');
+          'Автоустановка поддерживается только на Windows, macOS и Android');
     }
     final asset = release.installerAsset;
     if (asset == null) {
       throw UpdateException(Platform.isMacOS
           ? 'В релизе нет архива для macOS'
-          : 'В релизе нет файла установщика');
+          : Platform.isAndroid
+              ? 'В релизе нет APK для Android'
+              : 'В релизе нет файла установщика');
+    }
+
+    if (Platform.isAndroid) {
+      final apk = await _download(asset, onProgress);
+      await _openAndroidInstaller(apk);
+      return;
     }
 
     if (Platform.isMacOS) {
@@ -361,6 +385,18 @@ fi
       );
     } on ProcessException catch (e) {
       throw UpdateException('Не удалось запустить обновление: ${e.message}');
+    }
+  }
+
+  /// Передаёт APK системному установщику через FileProvider плагина.
+  /// Разрешение «Установка неизвестных приложений» Android запросит сам.
+  Future<void> _openAndroidInstaller(File apk) async {
+    final result = await OpenFilex.open(
+      apk.path,
+      type: 'application/vnd.android.package-archive',
+    );
+    if (result.type != ResultType.done) {
+      throw UpdateException('Не удалось открыть установщик: ${result.message}');
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/platform_info.dart';
 import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/module_toggle_tile.dart';
@@ -104,8 +105,11 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               const NotificationSettingsCard(),
               const SizedBox(height: 16),
-              const SystemSettingsCard(),
-              const SizedBox(height: 16),
+              // Трей и автозапуск есть только на десктопе.
+              if (isDesktopPlatform) ...[
+                const SystemSettingsCard(),
+                const SizedBox(height: 16),
+              ],
               const SyncSettingsCard(),
               const SizedBox(height: 16),
               const UpdateSettingsCard(),

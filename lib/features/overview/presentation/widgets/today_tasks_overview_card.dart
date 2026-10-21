@@ -27,19 +27,25 @@ class TodayTasksOverviewCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.task_alt, size: 18, color: colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Задачи на сегодня',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.task_alt, size: 18, color: colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Задачи на сегодня',
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               tasksAsync.maybeWhen(
                 data: (tasks) {
                   final active = tasks

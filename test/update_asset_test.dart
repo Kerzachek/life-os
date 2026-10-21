@@ -19,9 +19,17 @@ Release _release(List<String> names) => Release(
 
 void main() {
   test('каждая платформа берёт свой файл из общего релиза', () {
-    final release = _release(['LifeOS-macOS.zip', 'LifeOS-Setup.exe']);
+    final release = _release(
+        ['LifeOS-macOS.zip', 'LifeOS-Setup.exe', 'LifeOS-Android.apk']);
     expect(release.windowsAsset?.name, 'LifeOS-Setup.exe');
     expect(release.macosAsset?.name, 'LifeOS-macOS.zip');
+    expect(release.androidAsset?.name, 'LifeOS-Android.apk');
+  });
+
+  test('Android берёт только .apk', () {
+    expect(_release(['LifeOS-Setup.exe', 'LifeOS-macOS.zip']).androidAsset,
+        isNull);
+    expect(_release(['other.apk']).androidAsset?.name, 'other.apk');
   });
 
   test('Windows не берёт архив macOS', () {
