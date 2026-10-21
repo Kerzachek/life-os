@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../finance/presentation/widgets/transaction_dialog.dart';
 import '../../../habits/presentation/widgets/add_challenge_dialog.dart';
 import '../../../habits/presentation/widgets/add_habit_dialog.dart';
+import '../../../routine/presentation/widgets/routine_item_dialog.dart';
 import '../../../settings/domain/app_module.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../tasks/presentation/widgets/add_task_dialog.dart';
@@ -31,6 +32,8 @@ class QuickActionsCard extends ConsumerWidget {
         (_) => const AddChallengeDialog()),
     _QuickAction(AppModule.finance, Icons.receipt_long, '+ Операция',
         (_) => const TransactionDialog()),
+    _QuickAction(AppModule.routine, Icons.wb_sunny_outlined, '+ Рутина',
+        (_) => const RoutineItemDialog()),
   ];
 
   @override

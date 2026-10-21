@@ -14,7 +14,7 @@ class OverviewHeader extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final now = DateTime.now();
-    // Life Score строится по Задачам и Привычкам — без них он не нужен.
+    // Life Score строится по Задачам, Привычкам и Рутине — без них не нужен.
     final showScore =
         WeeklyProgressCard.isVisibleFor(ref.watch(enabledModulesProvider));
 

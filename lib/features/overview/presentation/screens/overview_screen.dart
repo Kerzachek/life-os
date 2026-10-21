@@ -8,6 +8,7 @@ import '../widgets/dashboard_empty_state.dart';
 import '../widgets/habits_overview_card.dart';
 import '../widgets/overview_header.dart';
 import '../widgets/quick_actions_card.dart';
+import '../widgets/routine_overview_card.dart';
 import '../widgets/today_tasks_overview_card.dart';
 import '../widgets/weekly_progress_card.dart';
 
@@ -37,9 +38,11 @@ class OverviewScreen extends ConsumerWidget {
     final tasksOn = enabled.contains(AppModule.tasks);
     final habitsOn = enabled.contains(AppModule.habits);
     final financeOn = enabled.contains(AppModule.finance);
+    final routineOn = enabled.contains(AppModule.routine);
 
     // Основная колонка — списки дел; боковая — действия и сводки.
     final primary = <Widget>[
+      if (routineOn) const RoutineOverviewCard(),
       if (tasksOn) const TodayTasksOverviewCard(),
       if (habitsOn) const HabitsOverviewCard(),
     ];

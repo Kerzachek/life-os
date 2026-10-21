@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../habits/presentation/providers/habits_provider.dart';
+import '../../../routine/presentation/providers/routine_provider.dart';
 import '../../../settings/domain/app_module.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../tasks/domain/task_status.dart';
@@ -11,13 +12,15 @@ import '../../domain/productivity.dart';
 /// Блок «Прогресс и продуктивность». Показывает прогресс-бары только
 /// включённых разделов; общий процент считается по ним же.
 ///
-/// Если отключены и Задачи, и Привычки — карточка не отображается.
+/// Если отключены Задачи, Привычки и Рутина — карточка не отображается.
 class WeeklyProgressCard extends ConsumerWidget {
   const WeeklyProgressCard({super.key});
 
   /// Нужно ли показывать блок при данном наборе разделов.
   static bool isVisibleFor(Set<AppModule> enabled) =>
-      enabled.contains(AppModule.tasks) || enabled.contains(AppModule.habits);
+      enabled.contains(AppModule.tasks) ||
+      enabled.contains(AppModule.habits) ||
+      enabled.contains(AppModule.routine);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,8 +29,9 @@ class WeeklyProgressCard extends ConsumerWidget {
     final enabled = ref.watch(enabledModulesProvider);
     final tasksOn = enabled.contains(AppModule.tasks);
     final habitsOn = enabled.contains(AppModule.habits);
+    final routineOn = enabled.contains(AppModule.routine);
 
-    if (!tasksOn && !habitsOn) return const SizedBox.shrink();
+    if (!isVisibleFor(enabled)) return const SizedBox.shrink();
 
     // Данные отключённого раздела не читаются.
     int totalTasks = 0;
@@ -47,12 +51,19 @@ class WeeklyProgressCard extends ConsumerWidget {
       completedHabitsToday = habits.where((h) => h.isCompletedToday).length;
     }
 
+    RoutineTodaySummary routine =
+        const RoutineTodaySummary(completed: 0, total: 0);
+    if (routineOn) {
+      routine = ref.watch(routineTodaySummaryProvider).value ?? routine;
+    }
+
     final taskRatio = totalTasks > 0 ? completedTasks / totalTasks : null;
     final habitRatio =
         totalHabits > 0 ? completedHabitsToday / totalHabits : null;
     final overall = overallProductivity([
       if (tasksOn) taskRatio,
       if (habitsOn) habitRatio,
+      if (routineOn) routine.ratio,
     ]);
 
     return Container(
@@ -114,6 +125,15 @@ class WeeklyProgressCard extends ConsumerWidget {
               done: completedHabitsToday,
               total: totalHabits,
               color: Colors.orange,
+            ),
+          ],
+          if (routineOn) ...[
+            const SizedBox(height: 16),
+            _ProgressRow(
+              label: 'Рутина',
+              done: routine.completed,
+              total: routine.total,
+              color: const Color(0xFFFDCB6E),
             ),
           ],
         ],

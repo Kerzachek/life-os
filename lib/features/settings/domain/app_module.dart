@@ -22,6 +22,13 @@ enum AppModule {
     title: 'Финансы',
     description: 'Счета, кредиты, депозиты, обязательные платежи и операции',
     icon: Icons.account_balance_wallet_rounded,
+  ),
+  routine(
+    storageKey: 'module_routine_enabled',
+    navIndex: 4,
+    title: 'Рутина',
+    description: 'Базовые ежедневные действия и чек-лист дня с автосбросом',
+    icon: Icons.wb_sunny_outlined,
   );
 
   const AppModule({

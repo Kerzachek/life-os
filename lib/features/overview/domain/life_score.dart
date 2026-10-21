@@ -1,9 +1,10 @@
 /// Индекс продуктивности и жизнестойкости за текущий день (0–100).
 ///
-/// Формула при всех доступных компонентах:
-/// 60% — доля выполненных задач за сегодня,
-/// 30% — доля выполненных сегодня привычек,
-/// 10% — активные стрики привычек.
+/// Веса компонентов (до нормировки):
+/// 0.6 — доля выполненных задач за сегодня,
+/// 0.3 — доля выполненных сегодня привычек,
+/// 0.1 — активные стрики привычек,
+/// 0.2 — доля выполненной ежедневной рутины.
 ///
 /// Если компонент недоступен (модуль отключён или данных нет), он исключается,
 /// а веса оставшихся компонентов нормируются до 100%.
@@ -20,23 +21,31 @@ class LifeScore {
   /// Сила активных стриков (0..1) или `null`, если компонент не учитывается.
   final double? streakRatio;
 
+  /// Доля выполненной рутины (0..1) или `null`, если компонент не учитывается.
+  final double? routineRatio;
+
   const LifeScore({
     required this.score,
     this.taskRatio,
     this.habitRatio,
     this.streakRatio,
+    this.routineRatio,
   });
 
   static const double taskWeight = 0.6;
   static const double habitWeight = 0.3;
   static const double streakWeight = 0.1;
+  static const double routineWeight = 0.2;
 
   /// Количество дней серии, при котором стрик считается «максимальным».
   static const int streakCapDays = 7;
 
   /// Нет ни одного доступного компонента для расчёта.
   bool get hasData =>
-      taskRatio != null || habitRatio != null || streakRatio != null;
+      taskRatio != null ||
+      habitRatio != null ||
+      streakRatio != null ||
+      routineRatio != null;
 
   static const LifeScore empty = LifeScore(score: 0);
 
@@ -45,10 +54,12 @@ class LifeScore {
     double? taskRatio,
     double? habitRatio,
     double? streakRatio,
+    double? routineRatio,
   }) {
     final task = taskRatio?.clamp(0.0, 1.0);
     final habit = habitRatio?.clamp(0.0, 1.0);
     final streak = streakRatio?.clamp(0.0, 1.0);
+    final routine = routineRatio?.clamp(0.0, 1.0);
 
     var weightSum = 0.0;
     var weighted = 0.0;
@@ -65,6 +76,10 @@ class LifeScore {
       weightSum += streakWeight;
       weighted += streak * streakWeight;
     }
+    if (routine != null) {
+      weightSum += routineWeight;
+      weighted += routine * routineWeight;
+    }
 
     final value = weightSum == 0 ? 0.0 : weighted / weightSum * 100;
 
@@ -73,6 +88,7 @@ class LifeScore {
       taskRatio: task,
       habitRatio: habit,
       streakRatio: streak,
+      routineRatio: routine,
     );
   }
 }

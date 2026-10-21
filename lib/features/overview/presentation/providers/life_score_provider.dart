@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../habits/presentation/providers/habits_provider.dart';
+import '../../../routine/presentation/providers/routine_provider.dart';
 import '../../../settings/domain/app_module.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../tasks/data/repositories/tasks_repository.dart';
@@ -22,10 +23,12 @@ final lifeScoreProvider = Provider<AsyncValue<LifeScore>>((ref) {
   final enabled = ref.watch(enabledModulesProvider);
   final tasksOn = enabled.contains(AppModule.tasks);
   final habitsOn = enabled.contains(AppModule.habits);
+  final routineOn = enabled.contains(AppModule.routine);
 
   double? taskRatio;
   double? habitRatio;
   double? streakRatio;
+  double? routineRatio;
 
   if (tasksOn) {
     final tasksAsync = ref.watch(todayTasksStreamProvider);
@@ -66,11 +69,22 @@ final lifeScoreProvider = Provider<AsyncValue<LifeScore>>((ref) {
     }
   }
 
+  if (routineOn) {
+    final routineAsync = ref.watch(routineTodaySummaryProvider);
+    if (routineAsync.hasError) {
+      return AsyncError(routineAsync.error!, routineAsync.stackTrace!);
+    }
+    final routine = routineAsync.value;
+    if (routine == null) return const AsyncLoading();
+    routineRatio = routine.ratio;
+  }
+
   return AsyncData(
     LifeScore.calculate(
       taskRatio: taskRatio,
       habitRatio: habitRatio,
       streakRatio: streakRatio,
+      routineRatio: routineRatio,
     ),
   );
 });

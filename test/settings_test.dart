@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:home_organizer/core/database/app_database.dart';
 import 'package:home_organizer/core/database/database_provider.dart';
 import 'package:home_organizer/features/overview/presentation/widgets/dashboard_empty_state.dart';
+import 'package:home_organizer/features/overview/presentation/widgets/routine_overview_card.dart';
 import 'package:home_organizer/features/settings/data/repositories/settings_repository.dart';
 import 'package:home_organizer/features/settings/domain/app_module.dart';
 import 'package:home_organizer/features/settings/presentation/providers/settings_provider.dart';
@@ -82,6 +83,8 @@ void main() {
     expect(find.text('+ Задача'), findsOneWidget);
     expect(find.text('+ Привычка'), findsOneWidget);
     expect(find.text('+ Операция'), findsOneWidget);
+    expect(find.text('+ Рутина'), findsOneWidget);
+    expect(find.text(RoutineOverviewCard.title), findsOneWidget);
     expect(find.text('Прогресс и Продуктивность'), findsOneWidget);
 
     Future<void> toggle(int index) async {
@@ -91,7 +94,7 @@ void main() {
         of: find.byType(ModuleToggleTile),
         matching: find.byType(Switch),
       );
-      expect(switches, findsNWidgets(3));
+      expect(switches, findsNWidgets(4));
       await tester.tap(switches.at(index));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Дашборд'));
@@ -105,22 +108,34 @@ void main() {
     expect(find.text('Выполнение задач'), findsNothing);
     expect(find.text('Привычки за сегодня'), findsOneWidget);
 
-    // Привычки тоже выключены: блок прогресса скрыт целиком.
+    // Привычки тоже выключены: в блоке прогресса остаётся только Рутина.
     await toggle(1);
     expect(find.text('+ Привычка'), findsNothing);
     expect(find.text('+ Челлендж'), findsNothing);
     expect(find.text('Привычки и Стрики'), findsNothing);
-    expect(find.text('Прогресс и Продуктивность'), findsNothing);
+    expect(find.text('Привычки за сегодня'), findsNothing);
+    expect(find.text('Прогресс и Продуктивность'), findsOneWidget);
     expect(find.text('+ Операция'), findsOneWidget);
 
-    // Все разделы выключены: пустое состояние с переходом в Настройки.
+    // Финансы выключены: остаётся только Рутина.
     await toggle(2);
+    expect(find.text('+ Операция'), findsNothing);
+    expect(find.text('Прогресс и Продуктивность'), findsOneWidget);
+    expect(find.text('Рутина'), findsWidgets);
+
+    // Рутина выключена: нет пункта меню, кнопки, карточки и бара.
+    // Все разделы выключены: пустое состояние с переходом в Настройки.
+    await toggle(3);
+    expect(find.text('Рутина'), findsNothing);
+    expect(find.text('+ Рутина'), findsNothing);
+    expect(find.text(RoutineOverviewCard.title), findsNothing);
+    expect(find.text('Прогресс и Продуктивность'), findsNothing);
     expect(find.text(DashboardEmptyState.title), findsOneWidget);
     expect(find.text('Быстрые действия'), findsNothing);
 
     await tester.tap(find.text('Открыть Настройки'));
     await tester.pumpAndSettle();
-    expect(find.byType(ModuleToggleTile), findsNWidgets(3));
+    expect(find.byType(ModuleToggleTile), findsNWidgets(4));
     expect(find.text('Система и фоновый режим'), findsOneWidget);
     expect(find.text('Работа в фоне'), findsOneWidget);
     expect(find.text('Автозапуск с Windows'), findsOneWidget);

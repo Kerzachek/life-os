@@ -83,6 +83,18 @@ class SyncEngine {
       table: _db.financeTransactions,
       fromJson: FinanceTransactionEntity.fromJson,
     ),
+    DriftSyncTable(
+      name: 'routine_items',
+      db: _db,
+      table: _db.routineItems,
+      fromJson: RoutineItemEntity.fromJson,
+    ),
+    DriftSyncTable(
+      name: 'routine_daily_logs',
+      db: _db,
+      table: _db.routineDailyLogs,
+      fromJson: RoutineDailyLogEntity.fromJson,
+    ),
   ];
 
   /// Имена синхронизируемых таблиц.

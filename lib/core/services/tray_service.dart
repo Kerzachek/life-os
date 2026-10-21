@@ -10,6 +10,7 @@ import '../../features/settings/data/repositories/settings_repository.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
 import 'autostart_service.dart';
 import 'notification_service.dart';
+import 'routine_reset_service.dart';
 
 /// Фоновый режим: значок в системном трее и перехват закрытия окна.
 ///
@@ -31,12 +32,16 @@ class TrayService with WindowListener {
   final SettingsRepository _settings;
   final NotificationService _notifications;
 
+  /// Вызывается, когда окно показано из трея или получило фокус
+  /// (например, для проверки смены суток в рутине).
+  final VoidCallback? onWindowShown;
+
   final List<MenuItem> _menuItems = [];
   bool _started = false;
   bool _quitting = false;
   bool _backgroundHintShown = false;
 
-  TrayService(this._settings, this._notifications);
+  TrayService(this._settings, this._notifications, {this.onWindowShown});
 
   /// Подключает window_manager и включает перехват крестика.
   /// Вызывается один раз в `main` с аргументами командной строки.
@@ -137,6 +142,7 @@ class TrayService with WindowListener {
     await windowManager.show();
     if (await windowManager.isMinimized()) await windowManager.restore();
     await windowManager.focus();
+    onWindowShown?.call();
   }
 
   /// Полностью завершает приложение, минуя сворачивание в трей.
@@ -151,6 +157,11 @@ class TrayService with WindowListener {
       debugPrint('TrayService: закрытие окна не удалось: $e');
       exit(0);
     }
+  }
+
+  @override
+  void onWindowFocus() {
+    onWindowShown?.call();
   }
 
   @override
@@ -184,6 +195,8 @@ final trayServiceProvider = Provider<TrayService>((ref) {
   final service = TrayService(
     ref.watch(settingsRepositoryProvider),
     ref.watch(notificationServiceProvider),
+    onWindowShown: () =>
+        unawaited(ref.read(routineResetServiceProvider).checkNow()),
   );
   ref.onDispose(service.dispose);
   return service;
