@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/services/autostart_service.dart';
 import 'core/services/notification_scheduler.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/tray_service.dart';
 import 'core/sync/google_drive_sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_sidebar.dart';
@@ -14,9 +16,12 @@ import 'features/settings/presentation/providers/settings_provider.dart';
 import 'features/settings/presentation/screens/settings_screen.dart';
 import 'features/tasks/presentation/screens/tasks_screen.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.initialize();
+  // Автозапуск: LifeOS + Platform.resolvedExecutable, флаг --minimized.
+  AutostartService.setup();
+  await TrayService.initialize(args);
   runApp(const HomeOrganizerApp());
 }
 
@@ -56,6 +61,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (!mounted) return;
       ref.read(googleDriveSyncServiceProvider.notifier).start();
       ref.read(notificationSchedulerProvider).start();
+      ref.read(trayServiceProvider).start();
     });
   }
 

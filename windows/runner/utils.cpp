@@ -41,6 +41,23 @@ std::vector<std::string> GetCommandLineArguments() {
   return command_line_arguments;
 }
 
+bool HasCommandLineFlag(const wchar_t* flag) {
+  int argc;
+  wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+  if (argv == nullptr) {
+    return false;
+  }
+
+  bool found = false;
+  for (int i = 1; i < argc && !found; i++) {
+    found = ::_wcsicmp(argv[i], flag) == 0;
+  }
+
+  ::LocalFree(argv);
+
+  return found;
+}
+
 std::string Utf8FromUtf16(const wchar_t* utf16_string) {
   if (utf16_string == nullptr) {
     return std::string();

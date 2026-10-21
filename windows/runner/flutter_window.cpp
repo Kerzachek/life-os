@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "utils.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -27,9 +28,12 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  // Autostart with --minimized keeps the window hidden (tray only).
+  if (!HasCommandLineFlag(kLaunchMinimizedFlag)) {
+    flutter_controller_->engine()->SetNextFrameCallback([&]() {
+      this->Show();
+    });
+  }
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the
@@ -65,6 +69,13 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case WM_ENDSESSION:
+      // Session end or Restart Manager (installer): quit even though WM_CLOSE
+      // is intercepted to hide the window to the tray.
+      if (wparam) {
+        ::PostQuitMessage(0);
+      }
+      return 0;
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

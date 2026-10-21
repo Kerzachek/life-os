@@ -7,6 +7,23 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Single instance: a second launch brings the running window (which may be
+  // hidden in the system tray) to the front instead of starting a new copy.
+  HANDLE instance_mutex =
+      ::CreateMutexW(nullptr, TRUE, L"LifeOS_SingleInstance_D37E84B1");
+  if (instance_mutex != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (!HasCommandLineFlag(kLaunchMinimizedFlag)) {
+      HWND existing =
+          ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"LifeOS");
+      if (existing != nullptr) {
+        ::ShowWindow(existing, ::IsIconic(existing) ? SW_RESTORE : SW_SHOW);
+        ::SetForegroundWindow(existing);
+      }
+    }
+    ::CloseHandle(instance_mutex);
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -39,5 +56,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   ::CoUninitialize();
+  if (instance_mutex != nullptr) {
+    ::ReleaseMutex(instance_mutex);
+    ::CloseHandle(instance_mutex);
+  }
   return EXIT_SUCCESS;
 }

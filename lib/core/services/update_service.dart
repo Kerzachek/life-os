@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pub_semver/pub_semver.dart';
 
+import 'tray_service.dart';
+
 /// Параметры источника обновлений. Переопределяются через --dart-define.
 class UpdateConfig {
   static const String owner =
@@ -197,6 +199,9 @@ class UpdateService {
         asset.isZip ? await _extractInstaller(file) : file;
 
     await _launchInstaller(installer);
+    // exit(0), а не закрытие окна: крестик перехвачен для сворачивания в трей
+    // (setPreventClose), и окно не должно пережить запуск установщика.
+    TrayService.removeTrayIcon();
     exit(0);
   }
 

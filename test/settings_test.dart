@@ -37,6 +37,30 @@ void main() {
     expect(resolveNotificationsEnabled(settings), isFalse);
   });
 
+  test('фоновый режим по умолчанию включён и сохраняется', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+
+    final controller = container.read(settingsControllerProvider);
+    final repo = container.read(settingsRepositoryProvider);
+
+    expect(resolveBackgroundModeEnabled(await repo.readAll()), isTrue);
+
+    await controller.setBackgroundModeEnabled(false);
+    expect(resolveBackgroundModeEnabled(await repo.readAll()), isFalse);
+
+    // Вне Windows-приложения (тесты) реестр не трогаем, выбор запоминается.
+    await controller.setLaunchAtStartup(true);
+    expect((await repo.readAll())[launchAtStartupKey], 'true');
+    expect(await container.read(launchAtStartupEnabledProvider.future), isFalse);
+  });
+
   testWidgets(
       'отключение разделов скрывает пункты меню, быстрые действия, '
       'прогресс и показывает пустое состояние', (tester) async {
@@ -97,6 +121,9 @@ void main() {
     await tester.tap(find.text('Открыть Настройки'));
     await tester.pumpAndSettle();
     expect(find.byType(ModuleToggleTile), findsNWidgets(3));
+    expect(find.text('Система и фоновый режим'), findsOneWidget);
+    expect(find.text('Работа в фоне'), findsOneWidget);
+    expect(find.text('Автозапуск с Windows'), findsOneWidget);
 
     // Размонтируем дерево и даём Drift закрыть потоки (иначе остаётся таймер).
     await tester.pumpWidget(const SizedBox());

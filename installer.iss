@@ -1,6 +1,6 @@
 ; Скрипт сборки инсталлятора Life OS через Inno Setup
 #define MyAppName "Life OS"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "Personal"
 #define MyAppExeName "home_organizer.exe"
 #define MyAppSourceDir "build\windows\x64\runner\Release"
@@ -26,6 +26,8 @@ ChangesAssociations=yes
 ; Закрывать запущенный экземпляр перед обновлением
 CloseApplications=yes
 RestartApplications=no
+; [Registry] только удаляет значение автозапуска текущего пользователя при деинсталляции
+UsedUserAreasWarning=no
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -45,6 +47,11 @@ Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Registry]
+; Убрать запись автозапуска (если включали в настройках) при удалении
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "LifeOS"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"; ValueType: none; ValueName: "LifeOS"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
