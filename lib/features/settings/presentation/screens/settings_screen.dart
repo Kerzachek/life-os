@@ -5,6 +5,7 @@ import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/module_toggle_tile.dart';
 import '../widgets/sync_settings_card.dart';
+import '../widgets/update_settings_card.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -126,6 +127,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               const SyncSettingsCard(),
+              const SizedBox(height: 16),
+              const UpdateSettingsCard(),
             ],
           ),
         ),

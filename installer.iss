@@ -14,19 +14,10 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=build\installer
-OutputBaseFilename=LifeOS_Setup
+OutputBaseFilename=LifeOS-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-
-; Защита паролем
-; Если пароль передан через скрипт (-Password "pass"), используется он.
-; Если нет — используется резервный пароль ниже.
-#ifndef InstallPassword
-  #define InstallPassword "12345"
-#endif
-Password={#InstallPassword}
-Encryption=yes
 
 ; Закрывать запущенный экземпляр перед обновлением
 CloseApplications=yes
@@ -53,3 +44,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; Перезапуск после тихого обновления из приложения (/SILENT)
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: WizardSilent

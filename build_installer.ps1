@@ -8,19 +8,14 @@
       2. flutter build windows --release --dart-define-from-file=key.json
       3. ISCC.exe installer.iss
 
-.PARAMETER Password
-    Optional. Overrides the installer password defined in installer.iss.
-
 .PARAMETER IsccPath
     Optional. Full path to ISCC.exe if it is not found automatically.
 
 .EXAMPLE
     .\build_installer.ps1
-    .\build_installer.ps1 -Password "MySecret"
 #>
 [CmdletBinding()]
 param(
-    [string]$Password,
     [string]$IsccPath
 )
 
@@ -84,14 +79,10 @@ if (-not (Test-Path $sourceDir)) {
 
 # --- Step 2: Compile installer ---
 Write-Host "`n==> ISCC.exe installer.iss" -ForegroundColor Cyan
-$isccArgs = @()
-if ($Password) { $isccArgs += "/DInstallPassword=$Password" }
-$isccArgs += 'installer.iss'
-
-& $iscc @isccArgs
+& $iscc 'installer.iss'
 if ($LASTEXITCODE -ne 0) {
     throw "ISCC.exe failed (exit code $LASTEXITCODE)."
 }
 
-$output = Join-Path $PSScriptRoot 'build\installer\LifeOS_Setup.exe'
+$output = Join-Path $PSScriptRoot 'build\installer\LifeOS-Setup.exe'
 Write-Host "`nDone. Installer: $output" -ForegroundColor Green

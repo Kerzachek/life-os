@@ -49,3 +49,4 @@ app.*.map.json
 
 # Секретные ключи для сборки приложения
 key.json
+models.json
