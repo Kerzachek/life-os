@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
 import 'account_dialog.dart';
@@ -25,7 +26,7 @@ class FinanceProductsTab extends ConsumerWidget {
               alignment: Alignment.centerRight,
               child: FilledButton.icon(
                 key: const ValueKey('add_product'),
-                onPressed: () => showDialog<void>(
+                onPressed: () => showFormSheet<void>(
                   context: context,
                   builder: (_) => const AccountDialog(),
                 ),

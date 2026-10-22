@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
 import 'transaction_dialog.dart';
@@ -39,7 +40,7 @@ class FinanceTransactionsTab extends ConsumerWidget {
               const SizedBox(width: 8),
               FilledButton.icon(
                 key: const ValueKey('add_transaction'),
-                onPressed: () => showDialog<void>(
+                onPressed: () => showFormSheet<void>(
                   context: context,
                   builder: (_) => const TransactionDialog(),
                 ),

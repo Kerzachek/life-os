@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../../../finance/presentation/widgets/transaction_dialog.dart';
 import '../../../habits/presentation/widgets/add_challenge_dialog.dart';
 import '../../../habits/presentation/widgets/add_habit_dialog.dart';
@@ -60,11 +61,13 @@ class QuickActionsCard extends ConsumerWidget {
             children: [
               Icon(Icons.flash_on_rounded, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                'Быстрые действия',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              Flexible(
+                child: Text(
+                  'Быстрые действия',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -79,7 +82,7 @@ class QuickActionsCard extends ConsumerWidget {
                   avatar: Icon(action.icon, size: 16),
                   label: Text(action.label),
                   onPressed: () {
-                    showDialog(context: context, builder: action.dialogBuilder);
+                    showFormSheet(context: context, builder: action.dialogBuilder);
                   },
                 ),
             ],

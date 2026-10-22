@@ -130,40 +130,59 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ],
     );
 
-    // Узкий экран (телефон): боковое меню скрыто, разделы — в нижней панели.
-    if (isMobileLayout(context)) {
-      final items = AppSidebar.visibleNavItems(enabledModules);
-      final selected = items.indexWhere((item) => item.index == effectiveIndex);
+    final items = AppSidebar.visibleNavItems(enabledModules);
+    final selected = items.indexWhere((item) => item.index == effectiveIndex);
+    final selectedPosition = selected < 0 ? 0 : selected;
+
+    // Телефон горизонтально: нижняя панель съела бы и без того малую высоту,
+    // поэтому разделы — в узкой ленте иконок слева.
+    if (isCompactLandscape(context)) {
       return Scaffold(
-        body: SafeArea(bottom: false, child: screens),
-        // До 6 пунктов на ~360dp: мелкий шрифт без системного увеличения,
-        // иначе «Настройки» переносится на две строки.
-        bottomNavigationBar: MediaQuery.withClampedTextScaling(
-          maxScaleFactor: 1.0,
-          child: NavigationBarTheme(
-            data: NavigationBarTheme.of(context).copyWith(
-              labelTextStyle: const WidgetStatePropertyAll(
-                TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: selected < 0 ? 0 : selected,
-              labelBehavior:
-                  NavigationDestinationLabelBehavior.onlyShowSelected,
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: selectedPosition,
               onDestinationSelected: (i) => select(items[i].index),
+              labelType: NavigationRailLabelType.none,
+              minWidth: 56,
+              scrollable: true,
+              groupAlignment: 0,
               destinations: [
                 for (final item in items)
-                  NavigationDestination(
-                      icon: Icon(item.icon), label: item.label),
+                  NavigationRailDestination(
+                    icon: Tooltip(message: item.label, child: Icon(item.icon)),
+                    label: Text(item.label),
+                  ),
               ],
             ),
-          ),
+            const VerticalDivider(width: 1),
+            Expanded(child: SafeArea(left: false, child: screens)),
+          ],
         ),
       );
     }
 
-    // SafeArea: телефон в горизонтальной ориентации шире 600dp и получает
-    // десктопную раскладку — без отступа меню уходит под строку состояния.
+    // Узкий экран (телефон): боковое меню скрыто, разделы — в нижней панели.
+    // Шесть подписей на ~360dp не помещаются («Настройк/и»), поэтому только
+    // иконки с индикатором-«пилюлей»; название — во всплывающей подсказке.
+    // Отступ под жест «Домой» NavigationBar добавляет сам (внутренний SafeArea).
+    if (isMobileLayout(context)) {
+      return Scaffold(
+        body: SafeArea(bottom: false, child: screens),
+        bottomNavigationBar: NavigationBar(
+          height: 64,
+          selectedIndex: selectedPosition,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+          onDestinationSelected: (i) => select(items[i].index),
+          destinations: [
+            for (final item in items)
+              NavigationDestination(icon: Icon(item.icon), label: item.label),
+          ],
+        ),
+      );
+    }
+
+    // SafeArea: планшет или окно с системными панелями и вырезами.
     return Scaffold(
       body: SafeArea(
         child: Row(

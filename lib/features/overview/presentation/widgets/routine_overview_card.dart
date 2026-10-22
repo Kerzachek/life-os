@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../../../routine/presentation/providers/routine_provider.dart';
 import '../../../routine/presentation/widgets/routine_item_dialog.dart';
 import '../../../routine/presentation/widgets/routine_item_tile.dart';
@@ -65,7 +66,7 @@ class RoutineOverviewCard extends ConsumerWidget {
               if (items.isEmpty) {
                 return Center(
                   child: TextButton.icon(
-                    onPressed: () => showDialog(
+                    onPressed: () => showFormSheet(
                       context: context,
                       builder: (_) => const RoutineItemDialog(),
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
@@ -71,7 +72,7 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
         .toList();
     if (_fromId == null && accounts.isNotEmpty) _fromId = accounts.first.id;
 
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isLoan
           ? 'Платёж по кредиту «${widget.product.name}»'
           : 'Пополнить «${widget.product.name}»'),

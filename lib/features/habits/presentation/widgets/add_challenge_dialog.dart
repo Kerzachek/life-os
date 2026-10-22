@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../providers/habits_provider.dart';
 
 class AddChallengeDialog extends ConsumerStatefulWidget {
@@ -44,7 +45,7 @@ class _AddChallengeDialogState extends ConsumerState<AddChallengeDialog> {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd.MM.yyyy');
 
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: const Text('Новый челлендж'),
       content: SingleChildScrollView(
         child: Form(

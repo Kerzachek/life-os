@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_icons.dart';
 import 'choice_tile.dart';
@@ -66,7 +67,7 @@ class _CategoryDialogState extends ConsumerState<CategoryDialog> {
   @override
   Widget build(BuildContext context) {
     final label = Theme.of(context).textTheme.labelMedium;
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEdit ? 'Редактировать категорию' : 'Новая категория'),
       content: SizedBox(
         width: 400,

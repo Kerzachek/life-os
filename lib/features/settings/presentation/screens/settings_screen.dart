@@ -64,11 +64,13 @@ class SettingsScreen extends ConsumerWidget {
                               color: colorScheme.primary,
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              'Активные разделы',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                            Flexible(
+                              child: Text(
+                                'Активные разделы',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ],

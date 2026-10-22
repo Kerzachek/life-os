@@ -67,7 +67,12 @@ class _Grid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 640 ? 4 : 2;
+        // Уже 400 в две колонки суммы с валютой ужимаются до нечитаемых.
+        final columns = constraints.maxWidth >= 640
+            ? 4
+            : constraints.maxWidth >= 400
+            ? 2
+            : 1;
         const gap = 12.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(

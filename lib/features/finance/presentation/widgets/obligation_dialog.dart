@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_category_presets.dart';
 import '../providers/finance_provider.dart';
@@ -78,7 +79,7 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
         .toList();
     final validCategory = categories.any((c) => c.id == _categoryId);
 
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEdit ? 'Редактировать платёж' : 'Новый обязательный платёж'),
       content: SizedBox(
         width: 380,

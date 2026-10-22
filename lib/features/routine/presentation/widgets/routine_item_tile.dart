@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../../finance/presentation/widgets/confirm_dialog.dart';
 import '../../domain/routine_category.dart';
 import '../../domain/routine_day.dart';
@@ -78,7 +79,7 @@ class RoutineItemTile extends ConsumerWidget {
                 IconButton(
                   tooltip: 'Редактировать',
                   icon: const Icon(Icons.edit_outlined, size: 18),
-                  onPressed: () => showDialog(
+                  onPressed: () => showFormSheet(
                     context: context,
                     builder: (_) => RoutineItemDialog(item: item),
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
 import 'finance_format.dart';
@@ -138,7 +139,7 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
     final isDeposit = _kind == FinanceAccountKind.deposit;
     const gap = SizedBox(height: 12);
 
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEdit ? 'Редактировать продукт' : 'Новый продукт'),
       content: SizedBox(
         width: 400,

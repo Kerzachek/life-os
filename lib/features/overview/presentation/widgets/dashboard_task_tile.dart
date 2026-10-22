@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../../tasks/domain/task_category.dart';
 import '../../../tasks/domain/task_priority.dart';
 import '../../../tasks/domain/task_status.dart';
@@ -21,7 +22,7 @@ class DashboardTaskTile extends ConsumerWidget {
   const DashboardTaskTile({super.key, required this.task});
 
   void _openEdit(BuildContext context) {
-    showDialog(
+    showFormSheet(
       context: context,
       builder: (_) => AddTaskDialog(taskToEdit: task),
     );

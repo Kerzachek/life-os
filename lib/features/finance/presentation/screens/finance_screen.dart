@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../providers/finance_provider.dart';
 import '../widgets/finance_overview_tab.dart';
 import '../widgets/finance_products_tab.dart';
@@ -56,25 +57,41 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<_FinanceTab>(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final tabs = SegmentedButton<_FinanceTab>(
                     key: const ValueKey('finance_tabs'),
                     showSelectedIcon: false,
                     segments: [
                       for (final t in _FinanceTab.values)
                         ButtonSegment(
                           value: t,
-                          label: Text(t.label),
+                          label: Text(
+                            t.label,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           icon: Icon(t.icon, size: 18),
                         ),
                     ],
                     selected: {_tab},
                     onSelectionChanged: (s) => setState(() => _tab = s.first),
-                  ),
-                ),
+                  );
+                  // На телефоне четыре вкладки не влезают в ширину и слова
+                  // переносятся по слогам — прокручиваем их горизонтально.
+                  if (constraints.maxWidth < mobileBreakpoint) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      child: tabs,
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: SizedBox(width: double.infinity, child: tabs),
+                  );
+                },
               ),
               Expanded(child: _body()),
             ],
@@ -84,12 +101,13 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
       floatingActionButton: _tab == _FinanceTab.overview
           ? FloatingActionButton.extended(
               key: const ValueKey('finance_fab'),
-              onPressed: () => showDialog<void>(
+              onPressed: () => showFormSheet<void>(
                 context: context,
                 builder: (_) => const TransactionDialog(),
               ),
               icon: const Icon(Icons.add),
               label: const Text('Операция'),
+              isExtended: !isCompactLandscape(context),
             )
           : null,
     );

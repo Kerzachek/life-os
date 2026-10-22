@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/habit_frequency.dart';
 import '../providers/habits_provider.dart';
 
@@ -50,7 +51,7 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: const Text('Новая привычка'),
       content: SingleChildScrollView(
         child: Form(

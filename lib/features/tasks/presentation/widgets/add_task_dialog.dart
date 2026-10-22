@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
 import '../../domain/task_reminder.dart';
@@ -131,7 +132,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEditing ? 'Редактировать задачу' : 'Новая задача'),
       content: SingleChildScrollView(
         child: Form(

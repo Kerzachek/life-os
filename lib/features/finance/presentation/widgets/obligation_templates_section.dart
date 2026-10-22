@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../providers/finance_provider.dart';
 import 'confirm_dialog.dart';
@@ -32,7 +33,7 @@ class ObligationTemplatesSection extends ConsumerWidget {
             ),
             FilledButton.icon(
               key: const ValueKey('add_obligation'),
-              onPressed: () => showDialog<void>(
+              onPressed: () => showFormSheet<void>(
                 context: context,
                 builder: (_) => const ObligationDialog(),
               ),
@@ -119,7 +120,7 @@ class _TemplateTile extends ConsumerWidget {
                 key: ValueKey('edit_template_${o.id}'),
                 tooltip: 'Изменить',
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: () => showDialog<void>(
+                onPressed: () => showFormSheet<void>(
                   context: context,
                   builder: (_) => ObligationDialog(obligation: o),
                 ),

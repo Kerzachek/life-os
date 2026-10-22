@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
 import '../providers/habits_provider.dart';
 import '../widgets/add_challenge_dialog.dart';
 import '../widgets/add_habit_dialog.dart';
@@ -58,7 +59,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          showDialog(
+          showFormSheet(
             context: context,
             builder: (context) => _selectedTabIndex == 0
                 ? const AddHabitDialog()

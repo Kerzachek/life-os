@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
 import '../../domain/task_reminder.dart';
@@ -129,7 +130,7 @@ class TaskItemWidget extends ConsumerWidget {
                 tooltip: 'Редактировать',
                 icon: const Icon(Icons.edit_outlined, size: 20),
                 color: theme.colorScheme.onSurfaceVariant,
-                onPressed: () => showDialog(
+                onPressed: () => showFormSheet(
                   context: context,
                   builder: (_) => AddTaskDialog(taskToEdit: task),
                 ),

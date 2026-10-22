@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../domain/routine_category.dart';
 import '../providers/routine_provider.dart';
 
@@ -45,7 +46,7 @@ class _RoutineItemDialogState extends ConsumerState<RoutineItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEditing ? 'Редактировать действие' : 'Новое действие'),
       content: SizedBox(
         width: 420,

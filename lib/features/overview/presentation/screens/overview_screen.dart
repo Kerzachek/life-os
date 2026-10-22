@@ -53,6 +53,29 @@ class OverviewScreen extends ConsumerWidget {
       if (WeeklyProgressCard.isVisibleFor(enabled)) const WeeklyProgressCard(),
     ];
 
+    // Телефон горизонтально: сводки и быстрые действия слева, списки дел
+    // справа, у каждой колонки своя прокрутка.
+    if (isCompactLandscape(context) &&
+        primary.isNotEmpty &&
+        secondary.isNotEmpty) {
+      return Scaffold(
+        body: LandscapeSplit(
+          summary: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              const OverviewHeader(),
+              const SizedBox(height: _gap),
+              ..._spaced(secondary),
+            ],
+          ),
+          list: ListView(
+            padding: const EdgeInsets.all(12),
+            children: _spaced(primary),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SingleChildScrollView(
         padding: EdgeInsets.all(isMobileLayout(context) ? 12 : 20),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
 import 'account_dialog.dart';
@@ -92,7 +93,7 @@ class ProductCard extends ConsumerWidget {
                   tooltip: 'Действия',
                   onSelected: (v) {
                     if (v == 'edit') {
-                      showDialog<void>(
+                      showFormSheet<void>(
                         context: context,
                         builder: (_) => AccountDialog(account: product),
                       );
@@ -135,7 +136,7 @@ class ProductCard extends ConsumerWidget {
                 alignment: Alignment.centerRight,
                 child: FilledButton.tonal(
                   key: ValueKey('product_action_${product.id}'),
-                  onPressed: () => showDialog<void>(
+                  onPressed: () => showFormSheet<void>(
                     context: context,
                     builder: (_) => ProductPaymentDialog(product: product),
                   ),

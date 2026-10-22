@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
@@ -142,7 +143,7 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
     final targetValue = valid(_targetId, targets.map((a) => a.id));
     final categoryValue = valid(_categoryId, categories.map((c) => c.id));
 
-    return AlertDialog(
+    return AdaptiveFormDialog(
       title: Text(_isEdit ? 'Редактировать операцию' : 'Новая операция'),
       content: SizedBox(
         width: 420,

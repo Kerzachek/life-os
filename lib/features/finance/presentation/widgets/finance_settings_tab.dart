@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_icons.dart';
 import '../providers/finance_provider.dart';
@@ -33,7 +34,7 @@ class FinanceSettingsTab extends ConsumerWidget {
               ),
               FilledButton.icon(
                 key: const ValueKey('add_category'),
-                onPressed: () => showDialog<void>(
+                onPressed: () => showFormSheet<void>(
                   context: context,
                   builder: (_) => const CategoryDialog(),
                 ),
@@ -112,7 +113,7 @@ class _CategoryTile extends ConsumerWidget {
             IconButton(
               tooltip: 'Изменить',
               icon: const Icon(Icons.edit_outlined, size: 18),
-              onPressed: () => showDialog<void>(
+              onPressed: () => showFormSheet<void>(
                 context: context,
                 builder: (_) => CategoryDialog(category: category),
               ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
 import '../../domain/finance_icons.dart';
@@ -77,7 +78,7 @@ class TransactionTile extends ConsumerWidget {
             tooltip: 'Действия',
             onSelected: (v) async {
               if (v == 'edit') {
-                showDialog<void>(
+                showFormSheet<void>(
                   context: context,
                   builder: (_) => TransactionDialog(transaction: t),
                 );
