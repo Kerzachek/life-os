@@ -162,15 +162,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
 
+    // SafeArea: телефон в горизонтальной ориентации шире 600dp и получает
+    // десктопную раскладку — без отступа меню уходит под строку состояния.
     return Scaffold(
-      body: Row(
-        children: [
-          AppSidebar(
-            selectedIndex: effectiveIndex,
-            onDestinationSelected: select,
-          ),
-          Expanded(child: screens),
-        ],
+      body: SafeArea(
+        child: Row(
+          children: [
+            AppSidebar(
+              selectedIndex: effectiveIndex,
+              onDestinationSelected: select,
+            ),
+            Expanded(child: screens),
+          ],
+        ),
       ),
     );
   }
