@@ -19,6 +19,19 @@ TaskEntity taskFromSyncJson(
   );
 }
 
+/// [FinanceAccountEntity.fromJson] с поддержкой снимков старых версий, где
+/// ещё нет полей плавающего графика (`isFlexibleSchedule` → `false`,
+/// `nextPaymentDate` / `nextPaymentAmount` → `null`).
+FinanceAccountEntity financeAccountFromSyncJson(
+  Map<String, dynamic> json, {
+  ValueSerializer? serializer,
+}) {
+  return FinanceAccountEntity.fromJson(
+    {...json, 'isFlexibleSchedule': json['isFlexibleSchedule'] ?? false},
+    serializer: serializer,
+  );
+}
+
 /// Движок построчного слияния локальной БД с облачным снимком
 /// (Last-Write-Wins по `updatedAt` / `deletedAt`).
 ///
@@ -51,7 +64,7 @@ class SyncEngine {
       name: 'finance_accounts',
       db: _db,
       table: _db.financeAccounts,
-      fromJson: FinanceAccountEntity.fromJson,
+      fromJson: financeAccountFromSyncJson,
     ),
     DriftSyncTable(
       name: 'habits',

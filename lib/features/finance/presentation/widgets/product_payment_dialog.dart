@@ -32,7 +32,9 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
   void initState() {
     super.initState();
     final p = widget.product;
-    final suggested = _isLoan ? p.monthlyPayment : null;
+    final suggested = !_isLoan
+        ? null
+        : (p.isFlexibleSchedule ? p.nextPaymentAmount : p.monthlyPayment);
     _amount = TextEditingController(text: suggested == null ? '' : '$suggested');
   }
 

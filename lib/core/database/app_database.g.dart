@@ -3914,6 +3914,44 @@ class $FinanceAccountsTable extends FinanceAccounts
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isFlexibleScheduleMeta =
+      const VerificationMeta('isFlexibleSchedule');
+  @override
+  late final GeneratedColumn<bool> isFlexibleSchedule = GeneratedColumn<bool>(
+    'is_flexible_schedule',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_flexible_schedule" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _nextPaymentDateMeta = const VerificationMeta(
+    'nextPaymentDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextPaymentDate =
+      GeneratedColumn<DateTime>(
+        'next_payment_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _nextPaymentAmountMeta = const VerificationMeta(
+    'nextPaymentAmount',
+  );
+  @override
+  late final GeneratedColumn<double> nextPaymentAmount =
+      GeneratedColumn<double>(
+        'next_payment_amount',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3928,6 +3966,9 @@ class $FinanceAccountsTable extends FinanceAccounts
     termMonths,
     monthlyPayment,
     paymentDay,
+    isFlexibleSchedule,
+    nextPaymentDate,
+    nextPaymentAmount,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4027,6 +4068,33 @@ class $FinanceAccountsTable extends FinanceAccounts
         paymentDay.isAcceptableOrUnknown(data['payment_day']!, _paymentDayMeta),
       );
     }
+    if (data.containsKey('is_flexible_schedule')) {
+      context.handle(
+        _isFlexibleScheduleMeta,
+        isFlexibleSchedule.isAcceptableOrUnknown(
+          data['is_flexible_schedule']!,
+          _isFlexibleScheduleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_payment_date')) {
+      context.handle(
+        _nextPaymentDateMeta,
+        nextPaymentDate.isAcceptableOrUnknown(
+          data['next_payment_date']!,
+          _nextPaymentDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_payment_amount')) {
+      context.handle(
+        _nextPaymentAmountMeta,
+        nextPaymentAmount.isAcceptableOrUnknown(
+          data['next_payment_amount']!,
+          _nextPaymentAmountMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4084,6 +4152,18 @@ class $FinanceAccountsTable extends FinanceAccounts
         DriftSqlType.int,
         data['${effectivePrefix}payment_day'],
       ),
+      isFlexibleSchedule: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_flexible_schedule'],
+      )!,
+      nextPaymentDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_payment_date'],
+      ),
+      nextPaymentAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}next_payment_amount'],
+      ),
     );
   }
 
@@ -4107,6 +4187,12 @@ class FinanceAccountEntity extends DataClass
   final int? termMonths;
   final double? monthlyPayment;
   final int? paymentDay;
+
+  /// Плавающий график (рассрочка): вместо дня месяца — конкретная дата и
+  /// сумма ближайшего списания, которые сдвигаются после каждой оплаты.
+  final bool isFlexibleSchedule;
+  final DateTime? nextPaymentDate;
+  final double? nextPaymentAmount;
   const FinanceAccountEntity({
     required this.id,
     required this.createdAt,
@@ -4120,6 +4206,9 @@ class FinanceAccountEntity extends DataClass
     this.termMonths,
     this.monthlyPayment,
     this.paymentDay,
+    required this.isFlexibleSchedule,
+    this.nextPaymentDate,
+    this.nextPaymentAmount,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4147,6 +4236,13 @@ class FinanceAccountEntity extends DataClass
     }
     if (!nullToAbsent || paymentDay != null) {
       map['payment_day'] = Variable<int>(paymentDay);
+    }
+    map['is_flexible_schedule'] = Variable<bool>(isFlexibleSchedule);
+    if (!nullToAbsent || nextPaymentDate != null) {
+      map['next_payment_date'] = Variable<DateTime>(nextPaymentDate);
+    }
+    if (!nullToAbsent || nextPaymentAmount != null) {
+      map['next_payment_amount'] = Variable<double>(nextPaymentAmount);
     }
     return map;
   }
@@ -4177,6 +4273,13 @@ class FinanceAccountEntity extends DataClass
       paymentDay: paymentDay == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentDay),
+      isFlexibleSchedule: Value(isFlexibleSchedule),
+      nextPaymentDate: nextPaymentDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextPaymentDate),
+      nextPaymentAmount: nextPaymentAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextPaymentAmount),
     );
   }
 
@@ -4198,6 +4301,11 @@ class FinanceAccountEntity extends DataClass
       termMonths: serializer.fromJson<int?>(json['termMonths']),
       monthlyPayment: serializer.fromJson<double?>(json['monthlyPayment']),
       paymentDay: serializer.fromJson<int?>(json['paymentDay']),
+      isFlexibleSchedule: serializer.fromJson<bool>(json['isFlexibleSchedule']),
+      nextPaymentDate: serializer.fromJson<DateTime?>(json['nextPaymentDate']),
+      nextPaymentAmount: serializer.fromJson<double?>(
+        json['nextPaymentAmount'],
+      ),
     );
   }
   @override
@@ -4216,6 +4324,9 @@ class FinanceAccountEntity extends DataClass
       'termMonths': serializer.toJson<int?>(termMonths),
       'monthlyPayment': serializer.toJson<double?>(monthlyPayment),
       'paymentDay': serializer.toJson<int?>(paymentDay),
+      'isFlexibleSchedule': serializer.toJson<bool>(isFlexibleSchedule),
+      'nextPaymentDate': serializer.toJson<DateTime?>(nextPaymentDate),
+      'nextPaymentAmount': serializer.toJson<double?>(nextPaymentAmount),
     };
   }
 
@@ -4232,6 +4343,9 @@ class FinanceAccountEntity extends DataClass
     Value<int?> termMonths = const Value.absent(),
     Value<double?> monthlyPayment = const Value.absent(),
     Value<int?> paymentDay = const Value.absent(),
+    bool? isFlexibleSchedule,
+    Value<DateTime?> nextPaymentDate = const Value.absent(),
+    Value<double?> nextPaymentAmount = const Value.absent(),
   }) => FinanceAccountEntity(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -4247,6 +4361,13 @@ class FinanceAccountEntity extends DataClass
         ? monthlyPayment.value
         : this.monthlyPayment,
     paymentDay: paymentDay.present ? paymentDay.value : this.paymentDay,
+    isFlexibleSchedule: isFlexibleSchedule ?? this.isFlexibleSchedule,
+    nextPaymentDate: nextPaymentDate.present
+        ? nextPaymentDate.value
+        : this.nextPaymentDate,
+    nextPaymentAmount: nextPaymentAmount.present
+        ? nextPaymentAmount.value
+        : this.nextPaymentAmount,
   );
   FinanceAccountEntity copyWithCompanion(FinanceAccountsCompanion data) {
     return FinanceAccountEntity(
@@ -4272,6 +4393,15 @@ class FinanceAccountEntity extends DataClass
       paymentDay: data.paymentDay.present
           ? data.paymentDay.value
           : this.paymentDay,
+      isFlexibleSchedule: data.isFlexibleSchedule.present
+          ? data.isFlexibleSchedule.value
+          : this.isFlexibleSchedule,
+      nextPaymentDate: data.nextPaymentDate.present
+          ? data.nextPaymentDate.value
+          : this.nextPaymentDate,
+      nextPaymentAmount: data.nextPaymentAmount.present
+          ? data.nextPaymentAmount.value
+          : this.nextPaymentAmount,
     );
   }
 
@@ -4289,7 +4419,10 @@ class FinanceAccountEntity extends DataClass
           ..write('interestRate: $interestRate, ')
           ..write('termMonths: $termMonths, ')
           ..write('monthlyPayment: $monthlyPayment, ')
-          ..write('paymentDay: $paymentDay')
+          ..write('paymentDay: $paymentDay, ')
+          ..write('isFlexibleSchedule: $isFlexibleSchedule, ')
+          ..write('nextPaymentDate: $nextPaymentDate, ')
+          ..write('nextPaymentAmount: $nextPaymentAmount')
           ..write(')'))
         .toString();
   }
@@ -4308,6 +4441,9 @@ class FinanceAccountEntity extends DataClass
     termMonths,
     monthlyPayment,
     paymentDay,
+    isFlexibleSchedule,
+    nextPaymentDate,
+    nextPaymentAmount,
   );
   @override
   bool operator ==(Object other) =>
@@ -4324,7 +4460,10 @@ class FinanceAccountEntity extends DataClass
           other.interestRate == this.interestRate &&
           other.termMonths == this.termMonths &&
           other.monthlyPayment == this.monthlyPayment &&
-          other.paymentDay == this.paymentDay);
+          other.paymentDay == this.paymentDay &&
+          other.isFlexibleSchedule == this.isFlexibleSchedule &&
+          other.nextPaymentDate == this.nextPaymentDate &&
+          other.nextPaymentAmount == this.nextPaymentAmount);
 }
 
 class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
@@ -4340,6 +4479,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
   final Value<int?> termMonths;
   final Value<double?> monthlyPayment;
   final Value<int?> paymentDay;
+  final Value<bool> isFlexibleSchedule;
+  final Value<DateTime?> nextPaymentDate;
+  final Value<double?> nextPaymentAmount;
   final Value<int> rowid;
   const FinanceAccountsCompanion({
     this.id = const Value.absent(),
@@ -4354,6 +4496,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     this.termMonths = const Value.absent(),
     this.monthlyPayment = const Value.absent(),
     this.paymentDay = const Value.absent(),
+    this.isFlexibleSchedule = const Value.absent(),
+    this.nextPaymentDate = const Value.absent(),
+    this.nextPaymentAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FinanceAccountsCompanion.insert({
@@ -4369,6 +4514,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     this.termMonths = const Value.absent(),
     this.monthlyPayment = const Value.absent(),
     this.paymentDay = const Value.absent(),
+    this.isFlexibleSchedule = const Value.absent(),
+    this.nextPaymentDate = const Value.absent(),
+    this.nextPaymentAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -4387,6 +4535,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     Expression<int>? termMonths,
     Expression<double>? monthlyPayment,
     Expression<int>? paymentDay,
+    Expression<bool>? isFlexibleSchedule,
+    Expression<DateTime>? nextPaymentDate,
+    Expression<double>? nextPaymentAmount,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4402,6 +4553,10 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
       if (termMonths != null) 'term_months': termMonths,
       if (monthlyPayment != null) 'monthly_payment': monthlyPayment,
       if (paymentDay != null) 'payment_day': paymentDay,
+      if (isFlexibleSchedule != null)
+        'is_flexible_schedule': isFlexibleSchedule,
+      if (nextPaymentDate != null) 'next_payment_date': nextPaymentDate,
+      if (nextPaymentAmount != null) 'next_payment_amount': nextPaymentAmount,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4419,6 +4574,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     Value<int?>? termMonths,
     Value<double?>? monthlyPayment,
     Value<int?>? paymentDay,
+    Value<bool>? isFlexibleSchedule,
+    Value<DateTime?>? nextPaymentDate,
+    Value<double?>? nextPaymentAmount,
     Value<int>? rowid,
   }) {
     return FinanceAccountsCompanion(
@@ -4434,6 +4592,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
       termMonths: termMonths ?? this.termMonths,
       monthlyPayment: monthlyPayment ?? this.monthlyPayment,
       paymentDay: paymentDay ?? this.paymentDay,
+      isFlexibleSchedule: isFlexibleSchedule ?? this.isFlexibleSchedule,
+      nextPaymentDate: nextPaymentDate ?? this.nextPaymentDate,
+      nextPaymentAmount: nextPaymentAmount ?? this.nextPaymentAmount,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4477,6 +4638,15 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     if (paymentDay.present) {
       map['payment_day'] = Variable<int>(paymentDay.value);
     }
+    if (isFlexibleSchedule.present) {
+      map['is_flexible_schedule'] = Variable<bool>(isFlexibleSchedule.value);
+    }
+    if (nextPaymentDate.present) {
+      map['next_payment_date'] = Variable<DateTime>(nextPaymentDate.value);
+    }
+    if (nextPaymentAmount.present) {
+      map['next_payment_amount'] = Variable<double>(nextPaymentAmount.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4498,6 +4668,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
           ..write('termMonths: $termMonths, ')
           ..write('monthlyPayment: $monthlyPayment, ')
           ..write('paymentDay: $paymentDay, ')
+          ..write('isFlexibleSchedule: $isFlexibleSchedule, ')
+          ..write('nextPaymentDate: $nextPaymentDate, ')
+          ..write('nextPaymentAmount: $nextPaymentAmount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10342,6 +10515,9 @@ typedef $$FinanceAccountsTableCreateCompanionBuilder =
       Value<int?> termMonths,
       Value<double?> monthlyPayment,
       Value<int?> paymentDay,
+      Value<bool> isFlexibleSchedule,
+      Value<DateTime?> nextPaymentDate,
+      Value<double?> nextPaymentAmount,
       Value<int> rowid,
     });
 typedef $$FinanceAccountsTableUpdateCompanionBuilder =
@@ -10358,6 +10534,9 @@ typedef $$FinanceAccountsTableUpdateCompanionBuilder =
       Value<int?> termMonths,
       Value<double?> monthlyPayment,
       Value<int?> paymentDay,
+      Value<bool> isFlexibleSchedule,
+      Value<DateTime?> nextPaymentDate,
+      Value<double?> nextPaymentAmount,
       Value<int> rowid,
     });
 
@@ -10512,6 +10691,21 @@ class $$FinanceAccountsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isFlexibleSchedule => $composableBuilder(
+    column: $table.isFlexibleSchedule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextPaymentDate => $composableBuilder(
+    column: $table.nextPaymentDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get nextPaymentAmount => $composableBuilder(
+    column: $table.nextPaymentAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> obligations(
     Expression<bool> Function($$ObligationsTableFilterComposer f) f,
   ) {
@@ -10656,6 +10850,21 @@ class $$FinanceAccountsTableOrderingComposer
     column: $table.paymentDay,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isFlexibleSchedule => $composableBuilder(
+    column: $table.isFlexibleSchedule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextPaymentDate => $composableBuilder(
+    column: $table.nextPaymentDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get nextPaymentAmount => $composableBuilder(
+    column: $table.nextPaymentAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FinanceAccountsTableAnnotationComposer
@@ -10710,6 +10919,21 @@ class $$FinanceAccountsTableAnnotationComposer
 
   GeneratedColumn<int> get paymentDay => $composableBuilder(
     column: $table.paymentDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFlexibleSchedule => $composableBuilder(
+    column: $table.isFlexibleSchedule,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get nextPaymentDate => $composableBuilder(
+    column: $table.nextPaymentDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get nextPaymentAmount => $composableBuilder(
+    column: $table.nextPaymentAmount,
     builder: (column) => column,
   );
 
@@ -10837,6 +11061,9 @@ class $$FinanceAccountsTableTableManager
                 Value<int?> termMonths = const Value.absent(),
                 Value<double?> monthlyPayment = const Value.absent(),
                 Value<int?> paymentDay = const Value.absent(),
+                Value<bool> isFlexibleSchedule = const Value.absent(),
+                Value<DateTime?> nextPaymentDate = const Value.absent(),
+                Value<double?> nextPaymentAmount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FinanceAccountsCompanion(
                 id: id,
@@ -10851,6 +11078,9 @@ class $$FinanceAccountsTableTableManager
                 termMonths: termMonths,
                 monthlyPayment: monthlyPayment,
                 paymentDay: paymentDay,
+                isFlexibleSchedule: isFlexibleSchedule,
+                nextPaymentDate: nextPaymentDate,
+                nextPaymentAmount: nextPaymentAmount,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10867,6 +11097,9 @@ class $$FinanceAccountsTableTableManager
                 Value<int?> termMonths = const Value.absent(),
                 Value<double?> monthlyPayment = const Value.absent(),
                 Value<int?> paymentDay = const Value.absent(),
+                Value<bool> isFlexibleSchedule = const Value.absent(),
+                Value<DateTime?> nextPaymentDate = const Value.absent(),
+                Value<double?> nextPaymentAmount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FinanceAccountsCompanion.insert(
                 id: id,
@@ -10881,6 +11114,9 @@ class $$FinanceAccountsTableTableManager
                 termMonths: termMonths,
                 monthlyPayment: monthlyPayment,
                 paymentDay: paymentDay,
+                isFlexibleSchedule: isFlexibleSchedule,
+                nextPaymentDate: nextPaymentDate,
+                nextPaymentAmount: nextPaymentAmount,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

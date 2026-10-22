@@ -43,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -84,18 +84,37 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 6) {
           // Пересоздание таблицы на шаге v3 уже могло добавить колонки.
-          final existing = (await customSelect('PRAGMA table_info(tasks)')
-                  .get())
-              .map((row) => row.read<String>('name'))
-              .toSet();
-          for (final column in [tasks.reminderAt, tasks.isReminderSent]) {
-            if (!existing.contains(column.name)) {
-              await m.addColumn(tasks, column);
-            }
-          }
+          await _addMissingColumns(
+              m, tasks, [tasks.reminderAt, tasks.isReminderSent]);
+        }
+        if (from < 7) {
+          // Таблица, созданная на шаге v4, уже содержит эти колонки.
+          await _addMissingColumns(m, financeAccounts, [
+            financeAccounts.isFlexibleSchedule,
+            financeAccounts.nextPaymentDate,
+            financeAccounts.nextPaymentAmount,
+          ]);
         }
       },
     );
+  }
+
+  /// Добавляет в [table] те из [columns], которых в ней ещё нет.
+  Future<void> _addMissingColumns(
+    Migrator m,
+    TableInfo table,
+    List<GeneratedColumn> columns,
+  ) async {
+    final existing =
+        (await customSelect('PRAGMA table_info(${table.actualTableName})')
+                .get())
+            .map((row) => row.read<String>('name'))
+            .toSet();
+    for (final column in columns) {
+      if (!existing.contains(column.name)) {
+        await m.addColumn(table, column);
+      }
+    }
   }
 
   /// Предустановленные категории финансов и счёт по умолчанию (идемпотентно).

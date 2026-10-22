@@ -350,6 +350,93 @@ void main() {
     await closeScreen(tester);
   });
 
+  testWidgets('продукты: тумблер плавающих платежей меняет поля формы',
+      (tester) async {
+    await openScreen(tester);
+    await openTab(tester, 'Продукты');
+
+    await tester.tap(find.byKey(const ValueKey('add_product')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('account_kind')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Кредит').last);
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const ValueKey('account_day')), findsOneWidget);
+    expect(find.byKey(const ValueKey('account_next_date')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('account_flexible')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('account_day')), findsNothing);
+    expect(find.byKey(const ValueKey('account_payment')), findsNothing);
+    expect(find.byKey(const ValueKey('account_next_date')), findsOneWidget);
+    expect(find.byKey(const ValueKey('account_next_amount')), findsOneWidget);
+
+    // Без даты ближайшего списания форма не сохраняется.
+    await tester.enterText(find.byKey(const ValueKey('account_name')), 'BNPL');
+    await tester.enterText(
+        find.byKey(const ValueKey('account_next_amount')), '2500');
+    await tester.tap(find.byKey(const ValueKey('account_submit')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Выберите дату'), findsOneWidget);
+
+    await closeScreen(tester);
+  });
+
+  testWidgets('рассрочка: бейдж, быстрая правка и оплата со сдвигом графика',
+      (tester) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    late String loanId;
+    await tester.runAsync(() async {
+      loanId = await repo.createAccount(
+        name: 'Долями',
+        kind: FinanceAccountKind.loan,
+        balance: 4000,
+        isFlexibleSchedule: true,
+        nextPaymentDate: today,
+        nextPaymentAmount: 1000,
+      );
+    });
+    final obligationId =
+        (await tester.runAsync(repo.getObligations))!.single.id;
+    await openScreen(tester);
+
+    expect(find.byKey(ValueKey('split_badge_$obligationId')), findsOneWidget);
+
+    // Карандаш: правим сумму ближайшего списания.
+    await tester.tap(find.byKey(ValueKey('edit_next_payment_$obligationId')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Ближайшее списание'), findsOneWidget);
+    await tester.enterText(
+        find.byKey(const ValueKey('flex_sheet_amount')), '1200');
+    await tester.tap(find.byKey(const ValueKey('flex_sheet_submit')));
+    await settle(tester);
+    var loan = (await tester.runAsync(repo.getAccounts))!
+        .firstWhere((a) => a.id == loanId);
+    expect(loan.nextPaymentAmount, 1200);
+
+    // Оплата: шторка предлагает следующий шаг через 14 дней.
+    await tester.tap(find.byKey(ValueKey('pay_$obligationId')));
+    await settle(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Следующее списание'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('flex_sheet_submit')));
+    await settle(tester);
+
+    loan = (await tester.runAsync(repo.getAccounts))!
+        .firstWhere((a) => a.id == loanId);
+    expect(loan.balance, 2800);
+    expect(
+      DateTime(loan.nextPaymentDate!.year, loan.nextPaymentDate!.month,
+          loan.nextPaymentDate!.day),
+      DateTime(today.year, today.month, today.day + 14),
+    );
+
+    await closeScreen(tester);
+  });
+
   testWidgets('настройки: добавление пользовательской категории',
       (tester) async {
     await openScreen(tester);

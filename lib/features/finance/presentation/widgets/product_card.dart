@@ -56,10 +56,17 @@ class ProductCard extends ConsumerWidget {
       FinanceAccountKind.deposit => AppTheme.secondaryAccent,
     };
     final payment = product.monthlyPayment;
+    final nextAmount = product.nextPaymentAmount;
+    final nextDate = product.nextPaymentDate;
+    final isLoan = kind == FinanceAccountKind.loan;
     final details = <String>[
       if (product.interestRate != null) '${product.interestRate}%',
       if (product.termMonths != null) '${product.termMonths} мес.',
-      if (kind == FinanceAccountKind.loan && payment != null)
+      if (isLoan && product.isFlexibleSchedule) 'Сплит',
+      if (isLoan && product.isFlexibleSchedule && nextAmount != null)
+        'ближайший ${formatMoney(nextAmount)}'
+            '${nextDate != null ? ' ${formatDate(nextDate)}' : ''}',
+      if (isLoan && !product.isFlexibleSchedule && payment != null)
         'платёж ${formatMoney(payment)}'
             '${product.paymentDay != null ? ' до ${product.paymentDay} числа' : ''}',
     ];

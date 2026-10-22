@@ -117,16 +117,22 @@ final obligationStatusesProvider =
   final month = DateTime(nowDate.year, nowDate.month);
   final obligations = ref.watch(financeObligationsProvider);
   final transactions = ref.watch(financeTransactionsProvider);
+  // Счета нужны для рассрочек: срок берётся из ближайшего списания кредита.
+  final accounts = ref.watch(financeAccountsProvider);
   if (obligations.hasError) {
     return AsyncValue.error(obligations.error!, obligations.stackTrace!);
   }
   if (transactions.hasError) {
     return AsyncValue.error(transactions.error!, transactions.stackTrace!);
   }
+  if (accounts.hasError) {
+    return AsyncValue.error(accounts.error!, accounts.stackTrace!);
+  }
   final o = obligations.value;
   final t = transactions.value;
-  if (o == null || t == null) return const AsyncValue.loading();
-  return AsyncValue.data(buildObligationStatuses(o, t, month));
+  final a = accounts.value;
+  if (o == null || t == null || a == null) return const AsyncValue.loading();
+  return AsyncValue.data(buildObligationStatuses(o, t, month, accounts: a));
 });
 
 final financeSummaryProvider = Provider<AsyncValue<FinanceSummary>>((ref) {

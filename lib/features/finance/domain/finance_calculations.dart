@@ -69,6 +69,9 @@ class ObligationStatus {
     this.paidAmount,
     this.urgency = ObligationUrgency.scheduled,
     this.daysUntilDue = 0,
+    this.dueDate,
+    this.dueAmount,
+    this.isFlexible = false,
   });
 
   final ObligationEntity obligation;
@@ -82,6 +85,19 @@ class ObligationStatus {
   /// Дней до срока оплаты (отрицательное — просрочка).
   final int daysUntilDue;
 
+  /// Дата срока оплаты (локальная полночь).
+  final DateTime? dueDate;
+
+  /// Сумма к оплате, если она отличается от шаблона платежа.
+  final double? dueAmount;
+
+  /// Платёж по рассрочке с плавающим графиком (Сплит, Долями): срок и сумма
+  /// берутся из ближайшего списания кредита.
+  final bool isFlexible;
+
+  /// Сумма к оплате.
+  double get amount => dueAmount ?? obligation.amount;
+
   /// Платёж требует внимания: срок близко, наступил или прошёл.
   bool get needsAttention =>
       urgency == ObligationUrgency.upcoming ||
@@ -92,10 +108,28 @@ class ObligationStatus {
 /// Дней от [now] до срока платежа в месяце [month]. Если в месяце нет
 /// указанного числа (например, 31-го), срок — последний день месяца.
 int daysUntilObligationDue(int dueDay, DateTime month, DateTime now) {
+  return daysBetween(now, obligationDueDate(dueDay, month));
+}
+
+/// Срок платежа с днём [dueDay] в месяце [month] (не позже последнего дня).
+DateTime obligationDueDate(int dueDay, DateTime month) {
   final lastDay = DateTime.utc(month.year, month.month + 1, 0).day;
-  final due = DateTime.utc(month.year, month.month, dueDay.clamp(1, lastDay));
-  final today = DateTime.utc(now.year, now.month, now.day);
-  return due.difference(today).inDays;
+  return DateTime(month.year, month.month, dueDay.clamp(1, lastDay));
+}
+
+/// Дата без времени в локальной зоне.
+DateTime dateOnly(DateTime date) {
+  final d = date.toLocal();
+  return DateTime(d.year, d.month, d.day);
+}
+
+/// Целых календарных дней от [from] до [to] (без влияния перевода часов).
+int daysBetween(DateTime from, DateTime to) {
+  final a = from.toLocal();
+  final b = to.toLocal();
+  return DateTime.utc(b.year, b.month, b.day)
+      .difference(DateTime.utc(a.year, a.month, a.day))
+      .inDays;
 }
 
 ObligationUrgency obligationUrgency({
@@ -155,38 +189,134 @@ FinanceTransactionEntity? findObligationPayment(
 
 /// Статусы обязательных платежей за [month], упорядоченные: сначала
 /// неоплаченные по сроку, затем оплаченные. [now] — «сегодня» (для тестов).
+///
+/// [accounts] нужны для кредитов с плавающим графиком: их платёж строится
+/// по `nextPaymentDate` / `nextPaymentAmount` (см. [flexibleObligationStatus]).
 List<ObligationStatus> buildObligationStatuses(
   Iterable<ObligationEntity> obligations,
   Iterable<FinanceTransactionEntity> transactions,
   DateTime month, {
   DateTime? now,
+  Iterable<FinanceAccountEntity> accounts = const [],
 }) {
   final txs = transactions.toList();
   final today = now ?? DateTime.now();
-  final result = [
-    for (final o in obligations)
-      if (o.deletedAt == null)
-        () {
-          final payment = findObligationPayment(o, txs, month);
-          final days = daysUntilObligationDue(o.dueDay, month, today);
-          return ObligationStatus(
-            obligation: o,
-            isPaid: payment != null,
-            paidAmount: payment?.amount,
-            daysUntilDue: days,
-            urgency: obligationUrgency(
-              isPaid: payment != null,
-              daysUntilDue: days,
-            ),
-          );
-        }(),
-  ];
+  final loans = {for (final a in accounts) a.id: a};
+  final result = <ObligationStatus>[];
+  for (final o in obligations) {
+    if (o.deletedAt != null) continue;
+    final payment = findObligationPayment(o, txs, month);
+    final loan = loans[o.loanAccountId];
+    if (loan != null && loan.isFlexibleSchedule) {
+      final status =
+          flexibleObligationStatus(o, loan, payment, month, today);
+      if (status != null) result.add(status);
+      continue;
+    }
+    final days = daysUntilObligationDue(o.dueDay, month, today);
+    result.add(ObligationStatus(
+      obligation: o,
+      isPaid: payment != null,
+      paidAmount: payment?.amount,
+      daysUntilDue: days,
+      dueDate: obligationDueDate(o.dueDay, month),
+      urgency: obligationUrgency(
+        isPaid: payment != null,
+        daysUntilDue: days,
+      ),
+    ));
+  }
   result.sort((a, b) {
     if (a.isPaid != b.isPaid) return a.isPaid ? 1 : -1;
-    final byDay = a.obligation.dueDay.compareTo(b.obligation.dueDay);
-    return byDay != 0 ? byDay : a.obligation.name.compareTo(b.obligation.name);
+    final byDate = a.dueDate != null && b.dueDate != null
+        ? a.dueDate!.compareTo(b.dueDate!)
+        : a.obligation.dueDay.compareTo(b.obligation.dueDay);
+    return byDate != 0
+        ? byDate
+        : a.obligation.name.compareTo(b.obligation.name);
   });
   return result;
+}
+
+/// Статус платежа по рассрочке с плавающим графиком за [month].
+///
+/// * Ближайшее списание в этом месяце (или раньше — просрочка, или в пределах
+///   [obligationUpcomingDays] дней в начале следующего) — платёж к оплате,
+///   даже если в месяце уже была оплата предыдущей доли.
+/// * Иначе платёж показывается оплаченным, если в месяце была оплата.
+/// * `null` — в этом месяце по рассрочке платить нечего (или долг закрыт).
+ObligationStatus? flexibleObligationStatus(
+  ObligationEntity obligation,
+  FinanceAccountEntity loan,
+  FinanceTransactionEntity? payment,
+  DateTime month,
+  DateTime now,
+) {
+  final next = loan.nextPaymentDate;
+  if (next != null) {
+    final due = dateOnly(next);
+    final days = daysBetween(now, due);
+    final monthEnd = DateTime(month.year, month.month + 1, 0);
+    if (!due.isAfter(monthEnd) || days <= obligationUpcomingDays) {
+      return ObligationStatus(
+        obligation: obligation,
+        isPaid: false,
+        daysUntilDue: days,
+        dueDate: due,
+        dueAmount: loan.nextPaymentAmount,
+        isFlexible: true,
+        urgency: obligationUrgency(isPaid: false, daysUntilDue: days),
+      );
+    }
+  }
+  if (payment == null) return null;
+  return ObligationStatus(
+    obligation: obligation,
+    isPaid: true,
+    paidAmount: payment.amount,
+    dueDate: dateOnly(payment.date),
+    dueAmount: payment.amount,
+    isFlexible: true,
+    urgency: ObligationUrgency.paid,
+  );
+}
+
+/// Шаг графика рассрочек по умолчанию (Сплит, Долями — раз в две недели).
+const int flexiblePaymentStepDays = 14;
+
+/// Ближайшее списание по рассрочке.
+class FlexiblePaymentStep {
+  const FlexiblePaymentStep({required this.date, required this.amount});
+
+  final DateTime date;
+  final double amount;
+}
+
+/// Остаток долга [loan] после оплаты [paidAmount] (не меньше нуля).
+double loanBalanceAfter(FinanceAccountEntity loan, double paidAmount) =>
+    math.max(0.0, ((loan.balance - paidAmount) * 100).round() / 100);
+
+/// Предлагает следующее списание рассрочки [loan] после оплаты [paidAmount]:
+/// через [flexiblePaymentStepDays] дней после оплаченного срока (но не
+/// раньше чем через столько же дней от [now]), сумма — прежняя доля, но не
+/// больше остатка долга. `null` — долг закрыт.
+FlexiblePaymentStep? suggestNextFlexiblePayment({
+  required FinanceAccountEntity loan,
+  required double paidAmount,
+  required DateTime now,
+}) {
+  final remaining = loanBalanceAfter(loan, paidAmount);
+  if (remaining <= 0) return null;
+  final today = dateOnly(now);
+  final base = loan.nextPaymentDate == null
+      ? today
+      : dateOnly(loan.nextPaymentDate!);
+  var date = DateTime(base.year, base.month, base.day + flexiblePaymentStepDays);
+  if (!date.isAfter(today)) {
+    date = DateTime(today.year, today.month, today.day + flexiblePaymentStepDays);
+  }
+  final share = loan.nextPaymentAmount ?? paidAmount;
+  return FlexiblePaymentStep(date: date, amount: math.min(share, remaining));
 }
 
 FinanceSummary buildSummary({
@@ -197,13 +327,13 @@ FinanceSummary buildSummary({
       .where((a) => a.deletedAt == null && a.kind == kind.value)
       .fold(0.0, (sum, a) => sum + a.balance);
 
-  final total = obligations.fold(0.0, (s, o) => s + o.obligation.amount);
+  final total = obligations.fold(0.0, (s, o) => s + o.amount);
   final paid = obligations
       .where((o) => o.isPaid)
-      .fold(0.0, (s, o) => s + (o.paidAmount ?? o.obligation.amount));
+      .fold(0.0, (s, o) => s + (o.paidAmount ?? o.amount));
   final unpaid = obligations
       .where((o) => !o.isPaid)
-      .fold(0.0, (s, o) => s + o.obligation.amount);
+      .fold(0.0, (s, o) => s + o.amount);
   final balance = sumOf(FinanceAccountKind.account);
 
   return FinanceSummary(
@@ -295,7 +425,7 @@ DailySafeBudgetState buildDailySafeBudget({
 
   final unpaid = obligations
       .where((o) => !o.isPaid)
-      .fold(0.0, (sum, o) => sum + o.obligation.amount);
+      .fold(0.0, (sum, o) => sum + o.amount);
 
   final spentToday = transactions.where((t) {
     if (!isDailyExpense(t)) return false;

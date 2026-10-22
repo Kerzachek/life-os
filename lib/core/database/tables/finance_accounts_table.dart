@@ -6,7 +6,9 @@ import 'syncable_table.dart';
 /// Смысл полей зависит от [kind] (0 — счёт, 1 — кредит, 2 — депозит):
 /// * счёт: [balance] — деньги на счёте;
 /// * кредит: [balance] — текущий остаток долга, [targetAmount] — исходная
-///   сумма задолженности, [monthlyPayment] и [paymentDay] — регулярный платёж;
+///   сумма задолженности, [monthlyPayment] и [paymentDay] — регулярный платёж
+///   либо, при [isFlexibleSchedule] (Сплит, Долями, BNPL), ближайшее списание
+///   [nextPaymentDate] / [nextPaymentAmount];
 /// * депозит: [balance] — накопленная сумма, [targetAmount] — цель копилки,
 ///   [interestRate] / [termMonths] — процент и срок.
 @DataClassName('FinanceAccountEntity')
@@ -19,4 +21,11 @@ class FinanceAccounts extends Table with SyncableTable {
   IntColumn get termMonths => integer().nullable()();
   RealColumn get monthlyPayment => real().nullable()();
   IntColumn get paymentDay => integer().nullable()();
+
+  /// Плавающий график (рассрочка): вместо дня месяца — конкретная дата и
+  /// сумма ближайшего списания, которые сдвигаются после каждой оплаты.
+  BoolColumn get isFlexibleSchedule =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get nextPaymentDate => dateTime().nullable()();
+  RealColumn get nextPaymentAmount => real().nullable()();
 }

@@ -8,6 +8,7 @@ import '../providers/finance_provider.dart';
 import 'account_picker.dart';
 import 'confirm_dialog.dart';
 import 'finance_format.dart';
+import 'flexible_payment_sheet.dart';
 import 'obligation_tile.dart';
 
 /// Операционный список «К оплате в этом месяце»: прогресс и чекбоксы оплаты.
@@ -45,15 +46,79 @@ class ObligationsCard extends ConsumerWidget {
       );
       return;
     }
+
+    // Рассрочка: сразу предлагаем следующий шаг графика.
+    FlexiblePaymentStep? next;
+    var debtClosed = false;
+    final loan = ref.read(financeAccountMapProvider)[
+        status.obligation.loanAccountId];
+    if (status.isFlexible && loan != null) {
+      final paid = status.amount;
+      final suggested = suggestNextFlexiblePayment(
+        loan: loan,
+        paidAmount: paid,
+        now: DateTime.now(),
+      );
+      if (suggested == null) {
+        debtClosed = true;
+      } else {
+        if (!context.mounted) return;
+        final remaining = loanBalanceAfter(loan, paid);
+        next = await showFlexiblePaymentSheet(
+          context,
+          title: 'Следующее списание',
+          message: 'Оплата ${formatMoney(paid)} уменьшит долг до '
+              '${formatMoney(remaining)}. Когда и сколько платить дальше?',
+          initialDate: suggested.date,
+          initialAmount: suggested.amount,
+          maxAmount: remaining,
+          confirmLabel: 'Оплатить',
+        );
+        if (next == null) return;
+      }
+    }
+
     final ok = await repo.payObligation(
       obligationId: status.obligation.id,
       fromAccountId: accountId,
+      nextPaymentDate: next?.date,
+      nextPaymentAmount: next?.amount,
     );
     if (!ok) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Платёж за этот месяц уже оплачен')),
       );
+    } else if (debtClosed) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Рассрочка «${loan!.name}» полностью погашена')),
+      );
     }
+  }
+
+  /// Быстрая правка даты и суммы ближайшего списания рассрочки.
+  Future<void> _editNextPayment(
+    BuildContext context,
+    WidgetRef ref,
+    ObligationStatus status,
+  ) async {
+    final loanId = status.obligation.loanAccountId;
+    final loan = ref.read(financeAccountMapProvider)[loanId];
+    if (loan == null) return;
+    final repo = ref.read(financeRepositoryProvider);
+    final result = await showFlexiblePaymentSheet(
+      context,
+      title: 'Ближайшее списание',
+      message: loan.name,
+      initialDate: status.dueDate ?? DateTime.now(),
+      initialAmount: status.amount,
+      maxAmount: loan.balance > 0 ? loan.balance : null,
+    );
+    if (result == null) return;
+    await repo.updateNextPayment(
+      loanId: loan.id,
+      date: result.date,
+      amount: result.amount,
+    );
   }
 
   @override
@@ -116,6 +181,9 @@ class ObligationsCard extends ConsumerWidget {
                       ObligationTile(
                         status: s,
                         onChanged: (paid) => _toggle(context, ref, s, paid),
+                        onEdit: s.isFlexible
+                            ? () => _editNextPayment(context, ref, s)
+                            : null,
                       ),
                   ],
                 );

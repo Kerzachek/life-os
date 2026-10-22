@@ -89,6 +89,10 @@ class FinanceRepository {
   /// Для кредита [balance] — текущий остаток долга, [targetAmount] — исходная
   /// сумма задолженности. Если у кредита задан [monthlyPayment], автоматически
   /// создаётся связанный обязательный платёж.
+  ///
+  /// [isFlexibleSchedule] — рассрочка с плавающим графиком (Сплит, Долями):
+  /// вместо [monthlyPayment] / [paymentDay] платёж строится по ближайшему
+  /// списанию [nextPaymentDate] / [nextPaymentAmount].
   Future<String> createAccount({
     required String name,
     required FinanceAccountKind kind,
@@ -98,7 +102,11 @@ class FinanceRepository {
     int? termMonths,
     double? monthlyPayment,
     int? paymentDay,
+    bool isFlexibleSchedule = false,
+    DateTime? nextPaymentDate,
+    double? nextPaymentAmount,
   }) async {
+    final flexible = isFlexibleSchedule && kind == FinanceAccountKind.loan;
     final id = _uuid.v4();
     final now = DateTime.now().toUtc();
     await _db.transaction(() async {
@@ -115,15 +123,13 @@ class FinanceRepository {
               termMonths: Value(termMonths),
               monthlyPayment: Value(monthlyPayment),
               paymentDay: Value(paymentDay),
+              isFlexibleSchedule: Value(flexible),
+              nextPaymentDate: Value(flexible ? _day(nextPaymentDate) : null),
+              nextPaymentAmount: Value(
+                  flexible ? _roundOrNull(nextPaymentAmount) : null),
             ),
           );
-      await _syncLoanObligation(
-        accountId: id,
-        kind: kind,
-        name: name,
-        monthlyPayment: monthlyPayment,
-        paymentDay: paymentDay,
-      );
+      await _syncLoanObligation(id);
     });
     return id;
   }
@@ -138,7 +144,11 @@ class FinanceRepository {
     int? termMonths,
     double? monthlyPayment,
     int? paymentDay,
+    bool isFlexibleSchedule = false,
+    DateTime? nextPaymentDate,
+    double? nextPaymentAmount,
   }) async {
+    final flexible = isFlexibleSchedule && kind == FinanceAccountKind.loan;
     final now = DateTime.now().toUtc();
     await _db.transaction(() async {
       await (_db.update(_db.financeAccounts)..where((a) => a.id.equals(id)))
@@ -152,18 +162,49 @@ class FinanceRepository {
           termMonths: Value(termMonths),
           monthlyPayment: Value(monthlyPayment),
           paymentDay: Value(paymentDay),
+          isFlexibleSchedule: Value(flexible),
+          nextPaymentDate: Value(flexible ? _day(nextPaymentDate) : null),
+          nextPaymentAmount:
+              Value(flexible ? _roundOrNull(nextPaymentAmount) : null),
           updatedAt: Value(now),
         ),
       );
-      await _syncLoanObligation(
-        accountId: id,
-        kind: kind,
-        name: name,
-        monthlyPayment: monthlyPayment,
-        paymentDay: paymentDay,
-      );
+      await _syncLoanObligation(id);
     });
   }
+
+  /// Быстрая правка ближайшего списания рассрочки (дата и сумма).
+  Future<void> updateNextPayment({
+    required String loanId,
+    required DateTime date,
+    required double amount,
+  }) async {
+    _validateAmount(amount);
+    await _db.transaction(() async {
+      await _writeNextPayment(loanId, date, amount);
+      await _syncLoanObligation(loanId);
+    });
+  }
+
+  Future<void> _writeNextPayment(
+    String loanId,
+    DateTime? date,
+    double? amount,
+  ) {
+    return (_db.update(_db.financeAccounts)..where((a) => a.id.equals(loanId)))
+        .write(FinanceAccountsCompanion(
+      nextPaymentDate: Value(_day(date)),
+      nextPaymentAmount: Value(_roundOrNull(amount)),
+      updatedAt: Value(DateTime.now().toUtc()),
+    ));
+  }
+
+  /// Дата списания без времени (локальная полночь).
+  static DateTime? _day(DateTime? date) =>
+      date == null ? null : dateOnly(date);
+
+  static double? _roundOrNull(double? value) =>
+      value == null ? null : roundMoney(value);
 
   /// Мягко удаляет продукт вместе с его операциями и связанными платежами.
   ///
@@ -193,21 +234,24 @@ class FinanceRepository {
     });
   }
 
-  /// Поддерживает обязательный платёж, связанный с кредитом.
-  Future<void> _syncLoanObligation({
-    required String accountId,
-    required FinanceAccountKind kind,
-    required String name,
-    required double? monthlyPayment,
-    required int? paymentDay,
-  }) async {
+  /// Поддерживает обязательный платёж, связанный с кредитом [accountId]:
+  /// по регулярному платежу либо, для рассрочки, по ближайшему списанию.
+  Future<void> _syncLoanObligation(String accountId) async {
     final now = DateTime.now().toUtc();
+    final account = await _getAccount(accountId);
+    final name = account.name;
+    final flexible = account.isFlexibleSchedule;
+    final amount =
+        flexible ? account.nextPaymentAmount : account.monthlyPayment;
+    final paymentDay =
+        flexible ? account.nextPaymentDate?.toLocal().day : account.paymentDay;
     final existing = await (_db.select(_db.obligations)
           ..where(
               (o) => o.loanAccountId.equals(accountId) & o.deletedAt.isNull()))
         .getSingleOrNull();
-    final wanted =
-        kind == FinanceAccountKind.loan && (monthlyPayment ?? 0) > 0;
+    final wanted = account.kind == FinanceAccountKind.loan.value &&
+        (amount ?? 0) > 0 &&
+        (!flexible || account.nextPaymentDate != null);
 
     if (!wanted) {
       if (existing != null) {
@@ -229,7 +273,7 @@ class FinanceRepository {
               createdAt: now,
               updatedAt: now,
               name: 'Кредит: $name',
-              amount: monthlyPayment!,
+              amount: amount!,
               dueDay: Value(day),
               categoryId: const Value(FinanceCategoryIds.loans),
               loanAccountId: Value(accountId),
@@ -240,7 +284,7 @@ class FinanceRepository {
             ..where((o) => o.id.equals(existing.id)))
           .write(ObligationsCompanion(
         name: Value('Кредит: $name'),
-        amount: Value(monthlyPayment!),
+        amount: Value(amount!),
         dueDay: Value(day),
         updatedAt: Value(now),
       ));
@@ -520,41 +564,79 @@ class FinanceRepository {
   /// текущий). Возвращает `false`, если платёж за этот месяц уже оплачен.
   ///
   /// Если платёж связан с кредитом, уменьшается остаток долга.
+  ///
+  /// Для рассрочки с плавающим графиком доли можно оплачивать несколько раз
+  /// в месяц. После оплаты ближайшее списание сдвигается на
+  /// [nextPaymentDate] / [nextPaymentAmount] (по умолчанию — подсказка
+  /// [suggestNextFlexiblePayment]); если долг закрыт, оно сбрасывается.
   Future<bool> payObligation({
     required String obligationId,
     required String fromAccountId,
     double? amount,
     DateTime? date,
+    DateTime? nextPaymentDate,
+    double? nextPaymentAmount,
   }) async {
     final when = date ?? DateTime.now();
     final obligation = await (_db.select(_db.obligations)
           ..where((o) => o.id.equals(obligationId)))
         .getSingle();
+    final loanId = obligation.loanAccountId;
+    final loan = loanId == null ? null : await _getAccount(loanId);
+    final flexible = loan?.isFlexibleSchedule ?? false;
 
     final transactions = await getTransactions();
-    if (findObligationPayment(obligation, transactions, when) != null) {
+    if (!flexible &&
+        findObligationPayment(obligation, transactions, when) != null) {
       return false;
     }
 
-    final isLoan = obligation.loanAccountId != null;
-    await createTransaction(
-      type: FinanceTransactionType.expense,
-      amount: amount ?? obligation.amount,
-      accountId: fromAccountId,
-      targetAccountId: obligation.loanAccountId,
-      categoryId: isLoan
-          ? FinanceCategoryIds.loans
-          : (obligation.categoryId ?? FinanceCategoryIds.obligations),
-      note: obligation.name,
-      date: when,
-      obligationId: obligationId,
-    );
+    final paid = amount ??
+        (flexible ? loan!.nextPaymentAmount : null) ??
+        obligation.amount;
+    await _db.transaction(() async {
+      await createTransaction(
+        type: FinanceTransactionType.expense,
+        amount: paid,
+        accountId: fromAccountId,
+        targetAccountId: loanId,
+        categoryId: loanId != null
+            ? FinanceCategoryIds.loans
+            : (obligation.categoryId ?? FinanceCategoryIds.obligations),
+        note: obligation.name,
+        date: when,
+        obligationId: obligationId,
+      );
+      if (!flexible) return;
+
+      final suggested = suggestNextFlexiblePayment(
+        loan: loan!,
+        paidAmount: paid,
+        now: when,
+      );
+      if (suggested == null) {
+        // Долг закрыт: платёж остаётся оплаченным в этом месяце, новых нет.
+        await _writeNextPayment(loan.id, null, null);
+        return;
+      }
+      final remaining = loanBalanceAfter(loan, paid);
+      final nextAmount = nextPaymentAmount ?? suggested.amount;
+      await _writeNextPayment(
+        loan.id,
+        nextPaymentDate ?? suggested.date,
+        nextAmount > remaining ? remaining : nextAmount,
+      );
+      await _syncLoanObligation(loan.id);
+    });
     return true;
   }
 
   /// Отменяет оплату обязательного платежа за месяц [date] (по умолчанию —
   /// текущий): удаляет созданную операцию и возвращает баланс. Возвращает
   /// `false`, если оплаты за этот месяц не было.
+  ///
+  /// Для рассрочки отменяется последняя оплата, а ближайшим списанием снова
+  /// становится она сама (её дата и сумма).
   Future<bool> undoObligationPayment({
     required String obligationId,
     DateTime? date,
@@ -562,13 +644,21 @@ class FinanceRepository {
     final obligation = await (_db.select(_db.obligations)
           ..where((o) => o.id.equals(obligationId)))
         .getSingle();
+    // Операции упорядочены по убыванию даты: найдётся последняя оплата.
     final payment = findObligationPayment(
       obligation,
       await getTransactions(),
       date ?? DateTime.now(),
     );
     if (payment == null) return false;
-    await deleteTransaction(payment.id);
+    final loanId = obligation.loanAccountId;
+    final loan = loanId == null ? null : await _getAccount(loanId);
+    await _db.transaction(() async {
+      await deleteTransaction(payment.id);
+      if (loan == null || !loan.isFlexibleSchedule) return;
+      await _writeNextPayment(loan.id, payment.date, payment.amount);
+      await _syncLoanObligation(loan.id);
+    });
     return true;
   }
 

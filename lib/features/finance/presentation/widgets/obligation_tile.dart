@@ -5,18 +5,23 @@ import '../../domain/finance_calculations.dart';
 import 'finance_format.dart';
 
 /// Строка обязательного платежа в карточке «К оплате в этом месяце»:
-/// чекбокс оплаты, подсветка по срочности и подпись со сроком.
+/// чекбокс оплаты, подсветка по срочности и подпись со сроком. Платёж по
+/// рассрочке помечается бейджем «Сплит» и правится карандашом ([onEdit]).
 class ObligationTile extends StatelessWidget {
   const ObligationTile({
     super.key,
     required this.status,
     required this.onChanged,
+    this.onEdit,
   });
 
   final ObligationStatus status;
 
   /// `true` — отметили оплату, `false` — сняли отметку (отмена оплаты).
   final ValueChanged<bool> onChanged;
+
+  /// Быстрая правка даты и суммы ближайшего списания (только рассрочки).
+  final VoidCallback? onEdit;
 
   static const Color _warning = Color(0xFFFF9F43);
   static const Color _danger = Color(0xFFFF6B6B);
@@ -36,8 +41,7 @@ class ObligationTile extends StatelessWidget {
   }
 
   String _caption() {
-    final o = status.obligation;
-    final amount = formatMoney(o.amount);
+    final amount = formatMoney(status.paidAmount ?? status.amount);
     final days = status.daysUntilDue;
     switch (status.urgency) {
       case ObligationUrgency.paid:
@@ -47,10 +51,20 @@ class ObligationTile extends StatelessWidget {
       case ObligationUrgency.dueToday:
         return '$amount · сегодня срок оплаты';
       case ObligationUrgency.upcoming:
-        return '$amount · через ${_days(days)} (${o.dueDay} числа)';
+        return '$amount · через ${_days(days)} (${_dueLabel()})';
       case ObligationUrgency.scheduled:
-        return '$amount · до ${o.dueDay} числа';
+        return '$amount · до ${_dueLabel()}';
     }
+  }
+
+  /// «15 числа» для ежемесячного платежа, «05.11» — для рассрочки.
+  String _dueLabel() {
+    final due = status.dueDate;
+    if (!status.isFlexible || due == null) {
+      return '${status.obligation.dueDay} числа';
+    }
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(due.day)}.${two(due.month)}';
   }
 
   static String _days(int n) {
@@ -95,28 +109,82 @@ class ObligationTile extends StatelessWidget {
           onChanged: (v) {
             if (v != null) onChanged(v);
           },
-          title: Text(
-            o.name,
-            style: TextStyle(
-              fontWeight: highlighted ? FontWeight.w600 : null,
-              decoration: paid ? TextDecoration.lineThrough : null,
-              color: paid ? theme.colorScheme.onSurfaceVariant : null,
-            ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  o.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: highlighted ? FontWeight.w600 : null,
+                    decoration: paid ? TextDecoration.lineThrough : null,
+                    color: paid ? theme.colorScheme.onSurfaceVariant : null,
+                  ),
+                ),
+              ),
+              if (status.isFlexible) ...[
+                const SizedBox(width: 6),
+                _SplitBadge(key: ValueKey('split_badge_${o.id}')),
+              ],
+            ],
           ),
           subtitle: Text(
             _caption(),
             style: theme.textTheme.bodySmall?.copyWith(color: color),
           ),
-          secondary: highlighted
-              ? Icon(
-                  status.urgency == ObligationUrgency.overdue
-                      ? Icons.error_outline
-                      : Icons.notifications_active_outlined,
-                  color: color,
-                  size: 20,
-                )
-              : null,
+          secondary: _trailing(color),
         ),
+      ),
+    );
+  }
+
+  Widget? _trailing(Color color) {
+    final attention = status.needsAttention
+        ? Icon(
+            status.urgency == ObligationUrgency.overdue
+                ? Icons.error_outline
+                : Icons.notifications_active_outlined,
+            color: color,
+            size: 20,
+          )
+        : null;
+    if (onEdit == null || status.isPaid) return attention;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ?attention,
+        IconButton(
+          key: ValueKey('edit_next_payment_${status.obligation.id}'),
+          tooltip: 'Изменить ближайшее списание',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          onPressed: onEdit,
+        ),
+      ],
+    );
+  }
+}
+
+/// Бейдж платежа по рассрочке с плавающим графиком.
+class _SplitBadge extends StatelessWidget {
+  const _SplitBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const color = AppTheme.secondaryAccent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        'Сплит',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }

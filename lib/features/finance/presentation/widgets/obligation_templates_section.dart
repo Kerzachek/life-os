@@ -94,9 +94,16 @@ class _TemplateTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final o = obligation;
     final isLoan = o.loanAccountId != null;
+    final loan = ref.watch(financeAccountMapProvider)[o.loanAccountId];
+    final nextDate = loan?.nextPaymentDate;
     final parts = [
       formatMoney(o.amount),
-      'каждое ${o.dueDay} число',
+      if (loan != null && loan.isFlexibleSchedule)
+        nextDate == null
+            ? 'плавающий график'
+            : 'плавающий график, ближайший ${formatDate(nextDate)}'
+      else
+        'каждое ${o.dueDay} число',
       ?categoryName,
     ];
 

@@ -28,6 +28,12 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
   late final TextEditingController _term;
   late final TextEditingController _payment;
   late final TextEditingController _day;
+  late final TextEditingController _nextAmount;
+
+  /// Плавающий график (Сплит / Долями): дата и сумма ближайшего списания
+  /// вместо ежемесячного платежа.
+  late bool _flexible;
+  DateTime? _nextDate;
 
   bool get _isEdit => widget.account != null;
 
@@ -47,14 +53,38 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
     _term = TextEditingController(text: _text(a?.termMonths));
     _payment = TextEditingController(text: _text(a?.monthlyPayment));
     _day = TextEditingController(text: _text(a?.paymentDay));
+    _nextAmount = TextEditingController(text: _text(a?.nextPaymentAmount));
+    _flexible = a?.isFlexibleSchedule ?? false;
+    _nextDate = a?.nextPaymentDate?.toLocal();
   }
 
   @override
   void dispose() {
-    for (final c in [_name, _balance, _target, _rate, _term, _payment, _day]) {
+    for (final c in [
+      _name,
+      _balance,
+      _target,
+      _rate,
+      _term,
+      _payment,
+      _day,
+      _nextAmount,
+    ]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _pickNextDate(FormFieldState<DateTime> field) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _nextDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(() => _nextDate = picked);
+    field.didChange(picked);
   }
 
   Future<void> _submit() async {
@@ -69,8 +99,11 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
     final target = isLoan || isDeposit ? parseMoney(_target.text) : null;
     final rate = isLoan || isDeposit ? parseMoney(_rate.text) : null;
     final term = isDeposit ? int.tryParse(_term.text.trim()) : null;
-    final payment = isLoan ? parseMoney(_payment.text) : null;
-    final day = isLoan ? int.tryParse(_day.text.trim()) : null;
+    final flexible = isLoan && _flexible;
+    final payment = isLoan && !flexible ? parseMoney(_payment.text) : null;
+    final day = isLoan && !flexible ? int.tryParse(_day.text.trim()) : null;
+    final nextDate = flexible ? _nextDate : null;
+    final nextAmount = flexible ? parseMoney(_nextAmount.text) : null;
 
     if (_isEdit) {
       await repo.updateAccount(
@@ -83,6 +116,9 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
         termMonths: term,
         monthlyPayment: payment,
         paymentDay: day,
+        isFlexibleSchedule: flexible,
+        nextPaymentDate: nextDate,
+        nextPaymentAmount: nextAmount,
       );
     } else {
       await repo.createAccount(
@@ -94,6 +130,9 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
         termMonths: term,
         monthlyPayment: payment,
         paymentDay: day,
+        isFlexibleSchedule: flexible,
+        nextPaymentDate: nextDate,
+        nextPaymentAmount: nextAmount,
       );
     }
     navigator.pop();
@@ -223,6 +262,50 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
                   ),
                 ],
                 if (isLoan) ...[
+                  gap,
+                  SwitchListTile(
+                    key: const ValueKey('account_flexible'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Плавающие платежи (Сплит / Долями)'),
+                    subtitle: const Text(
+                      'Дата и сумма каждого списания задаются отдельно',
+                    ),
+                    value: _flexible,
+                    onChanged: (v) => setState(() => _flexible = v),
+                  ),
+                ],
+                if (isLoan && _flexible) ...[
+                  gap,
+                  FormField<DateTime>(
+                    key: const ValueKey('account_next_date'),
+                    initialValue: _nextDate,
+                    validator: (_) =>
+                        _nextDate == null ? 'Выберите дату' : null,
+                    builder: (field) => InkWell(
+                      onTap: () => _pickNextDate(field),
+                      borderRadius: BorderRadius.circular(4),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Дата ближайшего списания *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: const Icon(Icons.event),
+                          errorText: field.errorText,
+                        ),
+                        child: Text(
+                          _nextDate == null ? '' : formatDate(_nextDate!),
+                        ),
+                      ),
+                    ),
+                  ),
+                  gap,
+                  _moneyField(
+                    const ValueKey('account_next_amount'),
+                    _nextAmount,
+                    'Сумма ближайшего списания *',
+                    _requiredPositive,
+                  ),
+                ],
+                if (isLoan && !_flexible) ...[
                   gap,
                   Row(
                     children: [
