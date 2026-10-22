@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
+import '../../../settings/data/repositories/settings_repository.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_icons.dart';
 import '../providers/finance_provider.dart';
@@ -10,7 +11,8 @@ import 'category_dialog.dart';
 import 'confirm_dialog.dart';
 import 'obligation_templates_section.dart';
 
-/// Вкладка «Настройки финансов»: шаблоны обязательных платежей и категории.
+/// Вкладка «Настройки финансов»: шаблоны обязательных платежей, учёт
+/// кредиток в дневном бюджете и категории.
 class FinanceSettingsTab extends ConsumerWidget {
   const FinanceSettingsTab({super.key});
 
@@ -23,6 +25,20 @@ class FinanceSettingsTab extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           const ObligationTemplatesSection(),
+          const SizedBox(height: 12),
+          Card(
+            child: SwitchListTile(
+              key: const ValueKey('include_credit_cards'),
+              title: const Text('Учитывать кредитные карты'),
+              subtitle: const Text(
+                'Траты с кредиток и долг по ним уменьшают «Доступно сегодня»',
+              ),
+              value: ref.watch(financeIncludeCreditCardsProvider),
+              onChanged: (v) => ref
+                  .read(settingsRepositoryProvider)
+                  .setValue(financeIncludeCreditCardsKey, v.toString()),
+            ),
+          ),
           const SizedBox(height: 24),
           Row(
             children: [

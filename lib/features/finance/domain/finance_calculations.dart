@@ -4,6 +4,26 @@ import '../../../core/database/app_database.dart';
 import 'finance_category_presets.dart';
 import 'finance_enums.dart';
 
+/// Кредитная карта / Сплит-лимит: долг хранится в `balance`, лимит — в
+/// `targetAmount` (см. `FinanceAccounts`).
+extension FinanceCreditLine on FinanceAccountEntity {
+  bool get isCreditCard => kind == FinanceAccountKind.creditCard.value;
+
+  /// Общий лимит кредитной линии.
+  double get creditLimit => targetAmount ?? 0;
+
+  /// Использованная часть лимита (долг). Отрицательная — переплата.
+  double get currentDebt => balance;
+
+  /// Сколько ещё можно потратить.
+  double get availableLimit =>
+      (creditLimit - currentDebt).clamp(0.0, math.max(0.0, creditLimit));
+
+  /// Доля использованного лимита (0..1).
+  double get debtRatio =>
+      creditLimit <= 0 ? 0 : (currentDebt / creditLimit).clamp(0.0, 1.0);
+}
+
 /// Сводка для карточек обзора.
 class FinanceSummary {
   const FinanceSummary({
@@ -18,7 +38,7 @@ class FinanceSummary {
   /// Деньги на обычных счетах.
   final double totalBalance;
 
-  /// Суммарный остаток долга по кредитам.
+  /// Суммарный остаток долга по кредитам и кредитным картам.
   final double totalDebt;
 
   /// Отложено в депозитах и копилках.
@@ -335,10 +355,14 @@ FinanceSummary buildSummary({
       .where((o) => !o.isPaid)
       .fold(0.0, (s, o) => s + o.amount);
   final balance = sumOf(FinanceAccountKind.account);
+  // Переплата по кредитке (отрицательный долг) не уменьшает другие долги.
+  final cardDebt = accounts
+      .where((a) => a.deletedAt == null && a.isCreditCard)
+      .fold(0.0, (sum, a) => sum + math.max(0.0, a.currentDebt));
 
   return FinanceSummary(
     totalBalance: balance,
-    totalDebt: sumOf(FinanceAccountKind.loan),
+    totalDebt: sumOf(FinanceAccountKind.loan) + cardDebt,
     totalDeposits: sumOf(FinanceAccountKind.deposit),
     obligationsTotal: total,
     obligationsPaid: paid,
@@ -353,10 +377,16 @@ class DailySafeBudgetState {
     required this.unpaidObligations,
     required this.spentToday,
     required this.daysRemaining,
+    this.creditCardDebt = 0,
   });
 
-  /// Деньги на обычных счетах (без депозитов/копилок и тел кредитов).
+  /// Деньги на обычных счетах (без депозитов/копилок и тел кредитов) за
+  /// вычетом [creditCardDebt].
   final double liquidBalance;
+
+  /// Долг по кредитным картам, учтённый в [liquidBalance] (0, если кредитки
+  /// в расчёте не участвуют).
+  final double creditCardDebt;
 
   /// Ещё не оплаченные обязательные платежи и взносы по кредитам месяца.
   final double unpaidObligations;
@@ -412,16 +442,28 @@ int daysRemainingInMonth(DateTime now) {
 /// Считает «Свободный дневной бюджет» на момент [now].
 ///
 /// [obligations] — статусы обязательных платежей текущего месяца.
+///
+/// [includeCreditCards] — учитывать кредитные карты: траты с них входят в
+/// сегодняшние расходы, а долг по ним вычитается из свободных денег (его
+/// придётся гасить со счёта). Так покупка по кредитке уменьшает «Доступно»
+/// так же, как покупка с дебетовой карты, а её погашение бюджет не меняет.
+/// Если выключено, кредитки в расчёте не участвуют вовсе.
 DailySafeBudgetState buildDailySafeBudget({
   required Iterable<FinanceAccountEntity> accounts,
   required Iterable<ObligationStatus> obligations,
   required Iterable<FinanceTransactionEntity> transactions,
   required DateTime now,
+  bool includeCreditCards = true,
 }) {
-  final liquid = accounts
-      .where((a) =>
-          a.deletedAt == null && a.kind == FinanceAccountKind.account.value)
+  final active = accounts.where((a) => a.deletedAt == null);
+  final cash = active
+      .where((a) => a.kind == FinanceAccountKind.account.value)
       .fold(0.0, (sum, a) => sum + a.balance);
+  final cards = active.where((a) => a.isCreditCard).toList();
+  final cardIds = {for (final a in cards) a.id};
+  final cardDebt = includeCreditCards
+      ? cards.fold(0.0, (sum, a) => sum + a.currentDebt)
+      : 0.0;
 
   final unpaid = obligations
       .where((o) => !o.isPaid)
@@ -429,15 +471,17 @@ DailySafeBudgetState buildDailySafeBudget({
 
   final spentToday = transactions.where((t) {
     if (!isDailyExpense(t)) return false;
+    if (!includeCreditCards && cardIds.contains(t.accountId)) return false;
     final d = t.date.toLocal();
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }).fold(0.0, (sum, t) => sum + t.amount);
 
   return DailySafeBudgetState(
-    liquidBalance: liquid,
+    liquidBalance: cash - cardDebt,
     unpaidObligations: unpaid,
     spentToday: spentToday,
     daysRemaining: daysRemainingInMonth(now),
+    creditCardDebt: cardDebt,
   );
 }
 

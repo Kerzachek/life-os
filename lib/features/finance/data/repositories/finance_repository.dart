@@ -300,6 +300,9 @@ class FinanceRepository {
   /// * доход: зачисляет на [accountId];
   /// * перевод: списывает с [accountId] и зачисляет на [targetAccountId]
   ///   (для кредита — уменьшает долг).
+  ///
+  /// Для кредитных карт знак обратный: трата с карты увеличивает долг, а
+  /// перевод на неё (погашение) — уменьшает и восстанавливает лимит.
   Future<String> createTransaction({
     required FinanceTransactionType type,
     required double amount,
@@ -435,6 +438,30 @@ class FinanceRepository {
     );
   }
 
+  /// Погашение кредитной карты: перевод со счёта [fromAccountId] на карту
+  /// [cardId] уменьшает долг и восстанавливает доступный лимит.
+  Future<String> recordCreditCardRepayment({
+    required String cardId,
+    required String fromAccountId,
+    required double amount,
+    DateTime? date,
+    String? note,
+  }) async {
+    final card = await _getAccount(cardId);
+    if (FinanceAccountKind.fromValue(card.kind) !=
+        FinanceAccountKind.creditCard) {
+      throw ArgumentError('Продукт ${card.name} не является кредитной картой');
+    }
+    return createTransaction(
+      type: FinanceTransactionType.transfer,
+      amount: amount,
+      accountId: fromAccountId,
+      targetAccountId: cardId,
+      note: note ?? 'Погашение «${card.name}»',
+      date: date,
+    );
+  }
+
   String? _normalizeTarget(
     FinanceTransactionType type,
     String accountId,
@@ -489,20 +516,21 @@ class FinanceRepository {
     await _adjustBalance(t.accountId, -sign * t.amount);
     final targetId = t.targetAccountId;
     if (targetId != null) {
-      final target = await _getAccount(targetId);
-      final isLoan =
-          FinanceAccountKind.fromValue(target.kind) == FinanceAccountKind.loan;
-      // Платёж по кредиту уменьшает долг, перевод на счёт/депозит увеличивает.
-      await _adjustBalance(targetId, (isLoan ? -sign : sign) * t.amount);
+      await _adjustBalance(targetId, sign * t.amount);
     }
   }
 
+  /// Изменяет деньги на продукте на [delta]. У кредита и кредитки `balance` —
+  /// долг, поэтому поступление (платёж, погашение) его уменьшает, а списание
+  /// (трата с кредитки) — увеличивает.
   Future<void> _adjustBalance(String accountId, double delta) async {
     final account = await _getAccount(accountId);
+    final isLiability = FinanceAccountKind.fromValue(account.kind).isLiability;
     await (_db.update(_db.financeAccounts)
           ..where((a) => a.id.equals(accountId)))
         .write(FinanceAccountsCompanion(
-      balance: Value(roundMoney(account.balance + delta)),
+      balance: Value(
+          roundMoney(account.balance + (isLiability ? -delta : delta))),
       updatedAt: Value(DateTime.now().toUtc()),
     ));
   }

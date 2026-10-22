@@ -5,9 +5,11 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_enums.dart';
+import 'credit_limit_indicator.dart';
 import 'finance_format.dart';
 
-/// Форма создания / редактирования счёта, кредита или депозита.
+/// Форма создания / редактирования счёта, кредита, депозита или кредитной
+/// карты.
 class AccountDialog extends ConsumerStatefulWidget {
   const AccountDialog({super.key, this.account, this.initialKind});
 
@@ -93,11 +95,13 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
     final navigator = Navigator.of(context);
     final isLoan = _kind == FinanceAccountKind.loan;
     final isDeposit = _kind == FinanceAccountKind.deposit;
+    final isCard = _kind == FinanceAccountKind.creditCard;
 
     final name = _name.text.trim();
     final balance = parseMoney(_balance.text) ?? 0;
-    final target = isLoan || isDeposit ? parseMoney(_target.text) : null;
-    final rate = isLoan || isDeposit ? parseMoney(_rate.text) : null;
+    final hasTarget = isLoan || isDeposit || isCard;
+    final target = hasTarget ? parseMoney(_target.text) : null;
+    final rate = hasTarget ? parseMoney(_rate.text) : null;
     final term = isDeposit ? int.tryParse(_term.text.trim()) : null;
     final flexible = isLoan && _flexible;
     final payment = isLoan && !flexible ? parseMoney(_payment.text) : null;
@@ -176,6 +180,8 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
   Widget build(BuildContext context) {
     final isLoan = _kind == FinanceAccountKind.loan;
     final isDeposit = _kind == FinanceAccountKind.deposit;
+    final isCard = _kind == FinanceAccountKind.creditCard;
+    final isLiability = _kind.isLiability;
     const gap = SizedBox(height: 12);
 
     return AdaptiveFormDialog(
@@ -191,13 +197,17 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
                 DropdownButtonFormField<FinanceAccountKind>(
                   key: const ValueKey('account_kind'),
                   initialValue: _kind,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Тип',
                     border: OutlineInputBorder(),
                   ),
                   items: [
                     for (final k in FinanceAccountKind.values)
-                      DropdownMenuItem(value: k, child: Text(k.label)),
+                      DropdownMenuItem(
+                        value: k,
+                        child: Text(k.label, overflow: TextOverflow.ellipsis),
+                      ),
                   ],
                   onChanged: _isEdit
                       ? null
@@ -216,18 +226,49 @@ class _AccountDialogState extends ConsumerState<AccountDialog> {
                       ? 'Введите название'
                       : null,
                 ),
+                if (isCard) ...[
+                  gap,
+                  _moneyField(
+                    const ValueKey('account_target'),
+                    _target,
+                    'Кредитный лимит *',
+                    _requiredPositive,
+                  ),
+                ],
                 gap,
                 _moneyField(
                   const ValueKey('account_balance'),
                   _balance,
-                  isLoan ? 'Остаток долга *' : 'Баланс *',
+                  isCard
+                      ? 'Текущий долг *'
+                      : isLoan
+                      ? 'Остаток долга *'
+                      : 'Баланс *',
                   (v) {
                     final n = parseMoney(v);
                     if (n == null) return 'Число';
-                    if (isLoan && n < 0) return 'Долг не может быть < 0';
+                    if (isLiability && n < 0) return 'Долг не может быть < 0';
                     return null;
                   },
                 ),
+                if (isCard) ...[
+                  gap,
+                  // Превью соотношения доступного лимита и долга.
+                  ListenableBuilder(
+                    listenable: Listenable.merge([_target, _balance]),
+                    builder: (context, _) => CreditLimitIndicator(
+                      limit: parseMoney(_target.text) ?? 0,
+                      debt: parseMoney(_balance.text) ?? 0,
+                    ),
+                  ),
+                  gap,
+                  _moneyField(
+                    const ValueKey('account_rate'),
+                    _rate,
+                    'Процентная ставка, % годовых',
+                    _optionalMoney,
+                  ),
+                ],
                 if (isLoan || isDeposit) ...[
                   gap,
                   _moneyField(

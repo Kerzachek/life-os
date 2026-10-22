@@ -406,6 +406,142 @@ void main() {
     });
   });
 
+  group('кредитные карты', () {
+    Future<String> card({double debt = 35000}) => repo.createAccount(
+          name: 'Сплит',
+          kind: FinanceAccountKind.creditCard,
+          balance: debt,
+          targetAmount: 100000,
+        );
+
+    test('доступный лимит = лимит − долг, не выходит за [0, лимит]', () async {
+      final id = await card();
+      final c = await account(id);
+      expect(c.isCreditCard, isTrue);
+      expect(c.creditLimit, 100000);
+      expect(c.currentDebt, 35000);
+      expect(c.availableLimit, 65000);
+      expect(c.debtRatio, closeTo(0.35, 1e-9));
+
+      final over = await card(debt: 120000);
+      expect((await account(over)).availableLimit, 0);
+      // Кредитка не создаёт обязательный платёж.
+      expect(await repo.getObligations(), isEmpty);
+    });
+
+    test('расход растит долг, удаление операции его откатывает', () async {
+      final id = await card();
+      final txId = await repo.createTransaction(
+        type: FinanceTransactionType.expense,
+        amount: 5000,
+        accountId: id,
+        categoryId: FinanceCategoryIds.food,
+      );
+      var c = await account(id);
+      expect(c.currentDebt, 40000);
+      expect(c.availableLimit, 60000);
+
+      final breakdown = buildExpenseBreakdown(
+        transactions: await repo.getTransactions(),
+        categories: await repo.getCategories(),
+        month: DateTime(DateTime.now().year, DateTime.now().month),
+      );
+      expect(breakdown.single.amount, 5000);
+
+      await repo.deleteTransaction(txId);
+      c = await account(id);
+      expect(c.currentDebt, 35000);
+    });
+
+    test('погашение — перевод со счёта, уменьшает долг', () async {
+      final id = await card();
+      await repo.createTransaction(
+        type: FinanceTransactionType.income,
+        amount: 50000,
+        accountId: defaultFinanceAccountId,
+      );
+      final txId = await repo.recordCreditCardRepayment(
+        cardId: id,
+        fromAccountId: defaultFinanceAccountId,
+        amount: 20000,
+      );
+      final tx = (await repo.getTransactions()).firstWhere((t) => t.id == txId);
+      expect(tx.type, FinanceTransactionType.transfer.value);
+      expect((await account(id)).currentDebt, 15000);
+      expect((await account(id)).availableLimit, 85000);
+      expect((await account(defaultFinanceAccountId)).balance, 30000);
+
+      expect(
+        () => repo.recordCreditCardRepayment(
+          cardId: defaultFinanceAccountId,
+          fromAccountId: id,
+          amount: 1,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('долг по кредитке входит в «Долги / Кредиты»', () async {
+      await card();
+      await repo.createAccount(
+        name: 'Ипотека',
+        kind: FinanceAccountKind.loan,
+        balance: 50000,
+      );
+      final s = buildSummary(
+        accounts: await repo.getAccounts(),
+        obligations: const [],
+      );
+      expect(s.totalDebt, 85000);
+      expect(s.totalBalance, 0);
+    });
+
+    test('трата с кредитки уменьшает «Доступно сегодня», если включено',
+        () async {
+      final id = await card(debt: 0);
+      await repo.createTransaction(
+        type: FinanceTransactionType.income,
+        amount: 30000,
+        accountId: defaultFinanceAccountId,
+      );
+      Future<DailySafeBudgetState> budget(bool include) async =>
+          buildDailySafeBudget(
+            accounts: await repo.getAccounts(),
+            obligations: const [],
+            transactions: await repo.getTransactions(),
+            now: DateTime.now(),
+            includeCreditCards: include,
+          );
+
+      final before = await budget(true);
+      await repo.createTransaction(
+        type: FinanceTransactionType.expense,
+        amount: 1000,
+        accountId: id,
+        categoryId: FinanceCategoryIds.food,
+      );
+      final after = await budget(true);
+      expect(after.spentToday, 1000);
+      expect(after.creditCardDebt, 1000);
+      expect(after.dailyAllowance, closeTo(before.dailyAllowance, 1e-9));
+      expect(after.remainingToday,
+          closeTo(before.remainingToday - 1000, 1e-9));
+      expect(after.freePoolTotal, 29000);
+
+      // Погашение со счёта не меняет бюджет: деньги ушли, долг ушёл.
+      await repo.recordCreditCardRepayment(
+        cardId: id,
+        fromAccountId: defaultFinanceAccountId,
+        amount: 1000,
+      );
+      expect((await budget(true)).freePoolTotal, 29000);
+
+      final off = await budget(false);
+      expect(off.spentToday, 0);
+      expect(off.creditCardDebt, 0);
+    });
+  });
+
   group('категории', () {
     test('пользовательскую категорию можно создать и удалить', () async {
       final id = await repo.createCategory(

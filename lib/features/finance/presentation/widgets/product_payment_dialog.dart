@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/finance_calculations.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
 import 'finance_format.dart';
 
 /// Платёж по кредиту ([FinanceAccountKind.loan]) или пополнение депозита
-/// ([FinanceAccountKind.deposit]) со счёта.
+/// ([FinanceAccountKind.deposit]) со счёта, погашение кредитной карты
+/// ([FinanceAccountKind.creditCard]) переводом.
 class ProductPaymentDialog extends ConsumerStatefulWidget {
   const ProductPaymentDialog({super.key, required this.product});
 
@@ -28,11 +30,15 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
   bool get _isLoan =>
       widget.product.kind == FinanceAccountKind.loan.value;
 
+  bool get _isCard => widget.product.isCreditCard;
+
   @override
   void initState() {
     super.initState();
     final p = widget.product;
-    final suggested = !_isLoan
+    final suggested = _isCard
+        ? (p.currentDebt > 0 ? p.currentDebt : null)
+        : !_isLoan
         ? null
         : (p.isFlexibleSchedule ? p.nextPaymentAmount : p.monthlyPayment);
     _amount = TextEditingController(text: suggested == null ? '' : '$suggested');
@@ -51,7 +57,13 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
     final amount = parseMoney(_amount.text)!;
     final from = _fromId!;
 
-    if (_isLoan) {
+    if (_isCard) {
+      await repo.recordCreditCardRepayment(
+        cardId: widget.product.id,
+        fromAccountId: from,
+        amount: amount,
+      );
+    } else if (_isLoan) {
       await repo.recordLoanPayment(
         loanId: widget.product.id,
         fromAccountId: from,
@@ -75,7 +87,9 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
     if (_fromId == null && accounts.isNotEmpty) _fromId = accounts.first.id;
 
     return AdaptiveFormDialog(
-      title: Text(_isLoan
+      title: Text(_isCard
+          ? 'Погасить «${widget.product.name}»'
+          : _isLoan
           ? 'Платёж по кредиту «${widget.product.name}»'
           : 'Пополнить «${widget.product.name}»'),
       content: SizedBox(
@@ -132,7 +146,11 @@ class _ProductPaymentDialogState extends ConsumerState<ProductPaymentDialog> {
           FilledButton(
             key: const ValueKey('payment_submit'),
             onPressed: _submit,
-            child: Text(_isLoan ? 'Внести платёж' : 'Пополнить'),
+            child: Text(_isCard
+                ? 'Погасить'
+                : _isLoan
+                ? 'Внести платёж'
+                : 'Пополнить'),
           ),
       ],
     );

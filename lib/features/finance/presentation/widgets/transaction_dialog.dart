@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/finance_calculations.dart';
 import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
 import 'finance_format.dart';
@@ -111,23 +112,27 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
   }
 
   DropdownMenuItem<String> _accountItem(FinanceAccountEntity a) {
+    final label = a.isCreditCard
+        ? '${a.name} (Доступно: ${formatMoney(a.availableLimit)})'
+        : '${a.name} · ${formatMoney(a.balance)}';
     return DropdownMenuItem(
       value: a.id,
-      child: Text('${a.name} · ${formatMoney(a.balance)}',
-          overflow: TextOverflow.ellipsis),
+      child: Text(label, overflow: TextOverflow.ellipsis),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final all = ref.watch(financeAccountsProvider).value ?? const [];
+    // Кредитки — полноценный источник: расход с них растит долг, а доход
+    // (возврат, кешбэк) уменьшает.
     final sources =
         all.where((a) => a.kind != FinanceAccountKind.loan.value).toList();
     final isIncome = _type == FinanceTransactionType.income;
     final isTransfer = _type == FinanceTransactionType.transfer;
 
     // Целевой продукт: для расхода — только кредит (погашение), для перевода —
-    // любой продукт кроме источника.
+    // любой продукт кроме источника (перевод на кредитку — её погашение).
     final targets = all.where((a) {
       if (isTransfer) return a.id != _accountId;
       return a.kind == FinanceAccountKind.loan.value;

@@ -5,13 +5,15 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/finance_calculations.dart';
 import '../../domain/finance_enums.dart';
 import 'account_dialog.dart';
 import 'confirm_dialog.dart';
+import 'credit_limit_indicator.dart';
 import 'finance_format.dart';
 import 'product_payment_dialog.dart';
 
-/// Карточка счёта, кредита или депозита.
+/// Карточка счёта, кредита, депозита или кредитной карты.
 class ProductCard extends ConsumerWidget {
   const ProductCard({super.key, required this.product});
 
@@ -54,11 +56,13 @@ class ProductCard extends ConsumerWidget {
       FinanceAccountKind.account => AppTheme.primaryAccent,
       FinanceAccountKind.loan => AppTheme.fireAccent,
       FinanceAccountKind.deposit => AppTheme.secondaryAccent,
+      FinanceAccountKind.creditCard => AppTheme.fireAccent,
     };
     final payment = product.monthlyPayment;
     final nextAmount = product.nextPaymentAmount;
     final nextDate = product.nextPaymentDate;
     final isLoan = kind == FinanceAccountKind.loan;
+    final isCard = kind == FinanceAccountKind.creditCard;
     final details = <String>[
       if (product.interestRate != null) '${product.interestRate}%',
       if (product.termMonths != null) '${product.termMonths} мес.',
@@ -70,7 +74,7 @@ class ProductCard extends ConsumerWidget {
         'платёж ${formatMoney(payment)}'
             '${product.paymentDay != null ? ' до ${product.paymentDay} числа' : ''}',
     ];
-    final progress = _progress(kind);
+    final progress = isCard ? null : _progress(kind);
 
     return Card(
       key: ValueKey('product_${product.id}'),
@@ -91,11 +95,12 @@ class ProductCard extends ConsumerWidget {
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
-                Text(
-                  formatMoney(product.balance),
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: color, fontWeight: FontWeight.bold),
-                ),
+                if (!isCard)
+                  Text(
+                    formatMoney(product.balance),
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(color: color, fontWeight: FontWeight.bold),
+                  ),
                 PopupMenuButton<String>(
                   tooltip: 'Действия',
                   onSelected: (v) {
@@ -120,6 +125,13 @@ class ProductCard extends ConsumerWidget {
                 details.join(' · '),
                 style: theme.textTheme.bodySmall?.copyWith(color: muted),
               ),
+            if (isCard) ...[
+              const SizedBox(height: 8),
+              CreditLimitIndicator(
+                limit: product.creditLimit,
+                debt: product.currentDebt,
+              ),
+            ],
             if (progress != null) ...[
               const SizedBox(height: 8),
               ClipRRect(
@@ -147,9 +159,11 @@ class ProductCard extends ConsumerWidget {
                     context: context,
                     builder: (_) => ProductPaymentDialog(product: product),
                   ),
-                  child: Text(kind == FinanceAccountKind.loan
-                      ? 'Внести платёж'
-                      : 'Пополнить'),
+                  child: Text(switch (kind) {
+                    FinanceAccountKind.loan => 'Внести платёж',
+                    FinanceAccountKind.creditCard => 'Погасить',
+                    _ => 'Пополнить',
+                  }),
                 ),
               ),
             ],

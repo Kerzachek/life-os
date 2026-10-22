@@ -1,9 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/repositories/finance_repository.dart';
 import '../../domain/finance_calculations.dart';
 import '../../domain/finance_enums.dart';
+
+/// Ключ настройки «Учитывать кредитные карты в „Доступно сегодня“».
+const String financeIncludeCreditCardsKey = 'finance_include_credit_cards';
+
+/// Учитывать ли кредитки в дневном бюджете (по умолчанию — да).
+final financeIncludeCreditCardsProvider = Provider<bool>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  return settings?[financeIncludeCreditCardsKey] != 'false';
+});
 
 // ------------------------------------------------------------ Стримы Drift
 
@@ -176,6 +186,7 @@ final dailySafeBudgetProvider =
       obligations: s,
       transactions: t,
       now: DateTime.now(),
+      includeCreditCards: ref.watch(financeIncludeCreditCardsProvider),
     ),
   );
 });

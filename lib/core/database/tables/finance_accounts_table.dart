@@ -3,14 +3,18 @@ import 'syncable_table.dart';
 
 /// Финансовые продукты: счета, кредиты и депозиты.
 ///
-/// Смысл полей зависит от [kind] (0 — счёт, 1 — кредит, 2 — депозит):
+/// Смысл полей зависит от [kind] (0 — счёт, 1 — кредит, 2 — депозит,
+/// 3 — кредитная карта / Сплит-лимит):
 /// * счёт: [balance] — деньги на счёте;
 /// * кредит: [balance] — текущий остаток долга, [targetAmount] — исходная
 ///   сумма задолженности, [monthlyPayment] и [paymentDay] — регулярный платёж
 ///   либо, при [isFlexibleSchedule] (Сплит, Долями, BNPL), ближайшее списание
 ///   [nextPaymentDate] / [nextPaymentAmount];
 /// * депозит: [balance] — накопленная сумма, [targetAmount] — цель копилки,
-///   [interestRate] / [termMonths] — процент и срок.
+///   [interestRate] / [termMonths] — процент и срок;
+/// * кредитная карта: [balance] — текущий долг (использованный лимит),
+///   [targetAmount] — кредитный лимит. Отдельных колонок нет, поэтому старые
+///   записи и снимки синхронизации читаются без миграции.
 @DataClassName('FinanceAccountEntity')
 class FinanceAccounts extends Table with SyncableTable {
   TextColumn get name => text()();

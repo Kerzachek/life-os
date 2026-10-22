@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'credit_cards_card.dart';
 import 'expense_pie_chart.dart';
 import 'finance_summary_cards.dart';
 import 'obligations_card.dart';
@@ -19,6 +20,7 @@ class FinanceOverviewTab extends StatelessWidget {
         SizedBox(height: 12),
         FinanceSummaryCards(),
         SizedBox(height: 12),
+        CreditCardsCard(),
         ObligationsCard(),
         SizedBox(height: 12),
         ExpensePieChart(),

@@ -4,7 +4,16 @@ import 'package:flutter/material.dart';
 enum FinanceAccountKind {
   account(0, 'Счёт', 'Счета', Icons.account_balance_wallet_outlined),
   loan(1, 'Кредит', 'Кредиты', Icons.credit_score_outlined),
-  deposit(2, 'Депозит / копилка', 'Депозиты', Icons.savings_outlined);
+  deposit(2, 'Депозит / копилка', 'Депозиты', Icons.savings_outlined),
+
+  /// Возобновляемая кредитная линия (кредитка, Сплит-лимит): с неё можно
+  /// тратить, как со счёта, а `balance` хранит текущий долг.
+  creditCard(
+    3,
+    'Кредитная карта / Сплит-лимит',
+    'Кредитные карты',
+    Icons.credit_card,
+  );
 
   const FinanceAccountKind(this.value, this.label, this.pluralLabel, this.icon);
 
@@ -19,6 +28,11 @@ enum FinanceAccountKind {
       orElse: () => FinanceAccountKind.account,
     );
   }
+
+  /// Пассив: `balance` — долг, поступление денег его уменьшает, а списание
+  /// увеличивает.
+  bool get isLiability =>
+      this == FinanceAccountKind.loan || this == FinanceAccountKind.creditCard;
 }
 
 /// Тип операции. [value] хранится в `finance_transactions.type`.
