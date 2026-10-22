@@ -16,7 +16,7 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
 final syncConfiguredProvider =
     Provider<bool>((ref) => GoogleSyncConfig.isConfigured);
 
-/// refresh-токен десктопа хранится в `app_settings` (не синхронизируется).
+/// refresh-токен (десктоп и Android) хранится в `app_settings` (не синхронизируется).
 class DbRefreshTokenStore implements RefreshTokenStore {
   static const String key = 'sync_google_refresh_token';
 
@@ -47,7 +47,7 @@ class DbRefreshTokenStore implements RefreshTokenStore {
 }
 
 final syncAuthProvider = Provider<SyncAuth>((ref) {
-  if (GoogleSyncConfig.isMobile) return MobileGoogleSignInAuth();
+  if (GoogleSyncConfig.usesNativeSignIn) return MobileGoogleSignInAuth();
   return DesktopLoopbackAuth(
     DbRefreshTokenStore(ref.watch(appDatabaseProvider)),
   );

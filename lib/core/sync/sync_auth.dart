@@ -28,13 +28,17 @@ class GoogleSyncConfig {
 
   static const List<String> scopes = [drive.DriveApi.driveAppdataScope];
 
-  static bool get isMobile => Platform.isAndroid || Platform.isIOS;
+  /// Нативный Google Sign-In — только iOS. Android входит через браузер
+  /// (loopback + PKCE, десктопный клиент): Credential Manager отвечал 28444
+  /// при верно настроенном Android-клиенте.
+  static bool get usesNativeSignIn => Platform.isIOS;
 
-  static bool get isConfigured =>
-      isMobile ? serverClientId.isNotEmpty : desktopClientId.isNotEmpty;
+  static bool get isConfigured => usesNativeSignIn
+      ? serverClientId.isNotEmpty
+      : desktopClientId.isNotEmpty;
 }
 
-/// Хранилище refresh-токена между запусками (десктоп).
+/// Хранилище refresh-токена между запусками (вход через браузер).
 abstract class RefreshTokenStore {
   Future<String?> read();
   Future<void> write(String? token);
@@ -57,7 +61,7 @@ abstract class SyncAuth {
   Future<void> signOut();
 }
 
-/// Windows / macOS / Linux: OAuth 2.0 loopback + PKCE через браузер.
+/// Windows / macOS / Linux / Android: OAuth 2.0 loopback + PKCE через браузер.
 class DesktopLoopbackAuth implements SyncAuth {
   final RefreshTokenStore tokenStore;
   final gauth.ClientId _clientId = gauth.ClientId(
