@@ -5356,6 +5356,46 @@ class $ObligationsTable extends Obligations
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isVariableAmountMeta = const VerificationMeta(
+    'isVariableAmount',
+  );
+  @override
+  late final GeneratedColumn<bool> isVariableAmount = GeneratedColumn<bool>(
+    'is_variable_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_variable_amount" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _estimatedAmountMeta = const VerificationMeta(
+    'estimatedAmount',
+  );
+  @override
+  late final GeneratedColumn<double> estimatedAmount = GeneratedColumn<double>(
+    'estimated_amount',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES finance_accounts (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5368,6 +5408,9 @@ class $ObligationsTable extends Obligations
     categoryId,
     loanAccountId,
     skippedMonth,
+    isVariableAmount,
+    estimatedAmount,
+    accountId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5454,6 +5497,30 @@ class $ObligationsTable extends Obligations
         ),
       );
     }
+    if (data.containsKey('is_variable_amount')) {
+      context.handle(
+        _isVariableAmountMeta,
+        isVariableAmount.isAcceptableOrUnknown(
+          data['is_variable_amount']!,
+          _isVariableAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('estimated_amount')) {
+      context.handle(
+        _estimatedAmountMeta,
+        estimatedAmount.isAcceptableOrUnknown(
+          data['estimated_amount']!,
+          _estimatedAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5503,6 +5570,18 @@ class $ObligationsTable extends Obligations
         DriftSqlType.dateTime,
         data['${effectivePrefix}skipped_month'],
       ),
+      isVariableAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_variable_amount'],
+      )!,
+      estimatedAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}estimated_amount'],
+      ),
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      ),
     );
   }
 
@@ -5531,6 +5610,18 @@ class ObligationEntity extends DataClass
   /// Месяц (первое число), за который платёж пропущен в режиме
   /// администратора: без операции и без списания со счёта.
   final DateTime? skippedMonth;
+
+  /// Плавающая сумма (ЖКХ, свет, счётчики): сумма к оплате — оценка, а
+  /// фактическая вводится при оплате. История оплат — расходы с
+  /// `obligation_id` этого платежа.
+  final bool isVariableAmount;
+
+  /// Ручной ориентир для плавающего платежа. `null` — оценка считается
+  /// медианой прошлых оплат (а без истории берётся [amount]).
+  final double? estimatedAmount;
+
+  /// Счёт списания по умолчанию.
+  final String? accountId;
   const ObligationEntity({
     required this.id,
     required this.createdAt,
@@ -5542,6 +5633,9 @@ class ObligationEntity extends DataClass
     this.categoryId,
     this.loanAccountId,
     this.skippedMonth,
+    required this.isVariableAmount,
+    this.estimatedAmount,
+    this.accountId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5563,6 +5657,13 @@ class ObligationEntity extends DataClass
     }
     if (!nullToAbsent || skippedMonth != null) {
       map['skipped_month'] = Variable<DateTime>(skippedMonth);
+    }
+    map['is_variable_amount'] = Variable<bool>(isVariableAmount);
+    if (!nullToAbsent || estimatedAmount != null) {
+      map['estimated_amount'] = Variable<double>(estimatedAmount);
+    }
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
     }
     return map;
   }
@@ -5587,6 +5688,13 @@ class ObligationEntity extends DataClass
       skippedMonth: skippedMonth == null && nullToAbsent
           ? const Value.absent()
           : Value(skippedMonth),
+      isVariableAmount: Value(isVariableAmount),
+      estimatedAmount: estimatedAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(estimatedAmount),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
     );
   }
 
@@ -5606,6 +5714,9 @@ class ObligationEntity extends DataClass
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       loanAccountId: serializer.fromJson<String?>(json['loanAccountId']),
       skippedMonth: serializer.fromJson<DateTime?>(json['skippedMonth']),
+      isVariableAmount: serializer.fromJson<bool>(json['isVariableAmount']),
+      estimatedAmount: serializer.fromJson<double?>(json['estimatedAmount']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
     );
   }
   @override
@@ -5622,6 +5733,9 @@ class ObligationEntity extends DataClass
       'categoryId': serializer.toJson<String?>(categoryId),
       'loanAccountId': serializer.toJson<String?>(loanAccountId),
       'skippedMonth': serializer.toJson<DateTime?>(skippedMonth),
+      'isVariableAmount': serializer.toJson<bool>(isVariableAmount),
+      'estimatedAmount': serializer.toJson<double?>(estimatedAmount),
+      'accountId': serializer.toJson<String?>(accountId),
     };
   }
 
@@ -5636,6 +5750,9 @@ class ObligationEntity extends DataClass
     Value<String?> categoryId = const Value.absent(),
     Value<String?> loanAccountId = const Value.absent(),
     Value<DateTime?> skippedMonth = const Value.absent(),
+    bool? isVariableAmount,
+    Value<double?> estimatedAmount = const Value.absent(),
+    Value<String?> accountId = const Value.absent(),
   }) => ObligationEntity(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -5649,6 +5766,11 @@ class ObligationEntity extends DataClass
         ? loanAccountId.value
         : this.loanAccountId,
     skippedMonth: skippedMonth.present ? skippedMonth.value : this.skippedMonth,
+    isVariableAmount: isVariableAmount ?? this.isVariableAmount,
+    estimatedAmount: estimatedAmount.present
+        ? estimatedAmount.value
+        : this.estimatedAmount,
+    accountId: accountId.present ? accountId.value : this.accountId,
   );
   ObligationEntity copyWithCompanion(ObligationsCompanion data) {
     return ObligationEntity(
@@ -5668,6 +5790,13 @@ class ObligationEntity extends DataClass
       skippedMonth: data.skippedMonth.present
           ? data.skippedMonth.value
           : this.skippedMonth,
+      isVariableAmount: data.isVariableAmount.present
+          ? data.isVariableAmount.value
+          : this.isVariableAmount,
+      estimatedAmount: data.estimatedAmount.present
+          ? data.estimatedAmount.value
+          : this.estimatedAmount,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
     );
   }
 
@@ -5683,7 +5812,10 @@ class ObligationEntity extends DataClass
           ..write('dueDay: $dueDay, ')
           ..write('categoryId: $categoryId, ')
           ..write('loanAccountId: $loanAccountId, ')
-          ..write('skippedMonth: $skippedMonth')
+          ..write('skippedMonth: $skippedMonth, ')
+          ..write('isVariableAmount: $isVariableAmount, ')
+          ..write('estimatedAmount: $estimatedAmount, ')
+          ..write('accountId: $accountId')
           ..write(')'))
         .toString();
   }
@@ -5700,6 +5832,9 @@ class ObligationEntity extends DataClass
     categoryId,
     loanAccountId,
     skippedMonth,
+    isVariableAmount,
+    estimatedAmount,
+    accountId,
   );
   @override
   bool operator ==(Object other) =>
@@ -5714,7 +5849,10 @@ class ObligationEntity extends DataClass
           other.dueDay == this.dueDay &&
           other.categoryId == this.categoryId &&
           other.loanAccountId == this.loanAccountId &&
-          other.skippedMonth == this.skippedMonth);
+          other.skippedMonth == this.skippedMonth &&
+          other.isVariableAmount == this.isVariableAmount &&
+          other.estimatedAmount == this.estimatedAmount &&
+          other.accountId == this.accountId);
 }
 
 class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
@@ -5728,6 +5866,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
   final Value<String?> categoryId;
   final Value<String?> loanAccountId;
   final Value<DateTime?> skippedMonth;
+  final Value<bool> isVariableAmount;
+  final Value<double?> estimatedAmount;
+  final Value<String?> accountId;
   final Value<int> rowid;
   const ObligationsCompanion({
     this.id = const Value.absent(),
@@ -5740,6 +5881,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     this.categoryId = const Value.absent(),
     this.loanAccountId = const Value.absent(),
     this.skippedMonth = const Value.absent(),
+    this.isVariableAmount = const Value.absent(),
+    this.estimatedAmount = const Value.absent(),
+    this.accountId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ObligationsCompanion.insert({
@@ -5753,6 +5897,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     this.categoryId = const Value.absent(),
     this.loanAccountId = const Value.absent(),
     this.skippedMonth = const Value.absent(),
+    this.isVariableAmount = const Value.absent(),
+    this.estimatedAmount = const Value.absent(),
+    this.accountId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -5770,6 +5917,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     Expression<String>? categoryId,
     Expression<String>? loanAccountId,
     Expression<DateTime>? skippedMonth,
+    Expression<bool>? isVariableAmount,
+    Expression<double>? estimatedAmount,
+    Expression<String>? accountId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5783,6 +5933,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
       if (categoryId != null) 'category_id': categoryId,
       if (loanAccountId != null) 'loan_account_id': loanAccountId,
       if (skippedMonth != null) 'skipped_month': skippedMonth,
+      if (isVariableAmount != null) 'is_variable_amount': isVariableAmount,
+      if (estimatedAmount != null) 'estimated_amount': estimatedAmount,
+      if (accountId != null) 'account_id': accountId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5798,6 +5951,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     Value<String?>? categoryId,
     Value<String?>? loanAccountId,
     Value<DateTime?>? skippedMonth,
+    Value<bool>? isVariableAmount,
+    Value<double?>? estimatedAmount,
+    Value<String?>? accountId,
     Value<int>? rowid,
   }) {
     return ObligationsCompanion(
@@ -5811,6 +5967,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
       categoryId: categoryId ?? this.categoryId,
       loanAccountId: loanAccountId ?? this.loanAccountId,
       skippedMonth: skippedMonth ?? this.skippedMonth,
+      isVariableAmount: isVariableAmount ?? this.isVariableAmount,
+      estimatedAmount: estimatedAmount ?? this.estimatedAmount,
+      accountId: accountId ?? this.accountId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5848,6 +6007,15 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     if (skippedMonth.present) {
       map['skipped_month'] = Variable<DateTime>(skippedMonth.value);
     }
+    if (isVariableAmount.present) {
+      map['is_variable_amount'] = Variable<bool>(isVariableAmount.value);
+    }
+    if (estimatedAmount.present) {
+      map['estimated_amount'] = Variable<double>(estimatedAmount.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5867,6 +6035,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
           ..write('categoryId: $categoryId, ')
           ..write('loanAccountId: $loanAccountId, ')
           ..write('skippedMonth: $skippedMonth, ')
+          ..write('isVariableAmount: $isVariableAmount, ')
+          ..write('estimatedAmount: $estimatedAmount, ')
+          ..write('accountId: $accountId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11188,6 +11359,24 @@ final class $$FinanceAccountsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$ObligationsTable, List<ObligationEntity>>
+  _payerObligationsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.obligations,
+    aliasName: 'finance_accounts__id__obligations__account_id',
+  );
+
+  $$ObligationsTableProcessedTableManager get payerObligations {
+    final manager = $$ObligationsTableTableManager(
+      $_db,
+      $_db.obligations,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_payerObligationsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<
     $FinanceTransactionsTable,
     List<FinanceTransactionEntity>
@@ -11331,6 +11520,31 @@ class $$FinanceAccountsTableFilterComposer
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.obligations,
       getReferencedColumn: (t) => t.loanAccountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ObligationsTableFilterComposer(
+            $db: $db,
+            $table: $db.obligations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> payerObligations(
+    Expression<bool> Function($$ObligationsTableFilterComposer f) f,
+  ) {
+    final $$ObligationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.obligations,
+      getReferencedColumn: (t) => t.accountId,
       builder:
           (
             joinBuilder, {
@@ -11579,6 +11793,31 @@ class $$FinanceAccountsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> payerObligations<T extends Object>(
+    Expression<T> Function($$ObligationsTableAnnotationComposer a) f,
+  ) {
+    final $$ObligationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.obligations,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ObligationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.obligations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> financeTransactionsRefs<T extends Object>(
     Expression<T> Function($$FinanceTransactionsTableAnnotationComposer a) f,
   ) {
@@ -11647,6 +11886,7 @@ class $$FinanceAccountsTableTableManager
           FinanceAccountEntity,
           PrefetchHooks Function({
             bool obligations,
+            bool payerObligations,
             bool financeTransactionsRefs,
             bool incomingTransactions,
           })
@@ -11749,6 +11989,7 @@ class $$FinanceAccountsTableTableManager
           prefetchHooksCallback:
               ({
                 obligations = false,
+                payerObligations = false,
                 financeTransactionsRefs = false,
                 incomingTransactions = false,
               }) {
@@ -11756,6 +11997,7 @@ class $$FinanceAccountsTableTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (obligations) db.obligations,
+                    if (payerObligations) db.obligations,
                     if (financeTransactionsRefs) db.financeTransactions,
                     if (incomingTransactions) db.financeTransactions,
                   ],
@@ -11780,6 +12022,27 @@ class $$FinanceAccountsTableTableManager
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.loanAccountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (payerObligations)
+                        await $_getPrefetchedData<
+                          FinanceAccountEntity,
+                          $FinanceAccountsTable,
+                          ObligationEntity
+                        >(
+                          currentTable: table,
+                          referencedTable: $$FinanceAccountsTableReferences
+                              ._payerObligationsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$FinanceAccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).payerObligations,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
                               ),
                           typedResults: items,
                         ),
@@ -11847,6 +12110,7 @@ typedef $$FinanceAccountsTableProcessedTableManager =
       FinanceAccountEntity,
       PrefetchHooks Function({
         bool obligations,
+        bool payerObligations,
         bool financeTransactionsRefs,
         bool incomingTransactions,
       })
@@ -12364,6 +12628,9 @@ typedef $$ObligationsTableCreateCompanionBuilder =
       Value<String?> categoryId,
       Value<String?> loanAccountId,
       Value<DateTime?> skippedMonth,
+      Value<bool> isVariableAmount,
+      Value<double?> estimatedAmount,
+      Value<String?> accountId,
       Value<int> rowid,
     });
 typedef $$ObligationsTableUpdateCompanionBuilder =
@@ -12378,6 +12645,9 @@ typedef $$ObligationsTableUpdateCompanionBuilder =
       Value<String?> categoryId,
       Value<String?> loanAccountId,
       Value<DateTime?> skippedMonth,
+      Value<bool> isVariableAmount,
+      Value<double?> estimatedAmount,
+      Value<String?> accountId,
       Value<int> rowid,
     });
 
@@ -12415,6 +12685,24 @@ final class $$ObligationsTableReferences
       $_db.financeAccounts,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_loanAccountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $FinanceAccountsTable _accountIdTable(_$AppDatabase db) => db
+      .financeAccounts
+      .createAlias('obligations__account_id__finance_accounts__id');
+
+  $$FinanceAccountsTableProcessedTableManager? get accountId {
+    final $_column = $_itemColumn<String>('account_id');
+    if ($_column == null) return null;
+    final manager = $$FinanceAccountsTableTableManager(
+      $_db,
+      $_db.financeAccounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -12495,6 +12783,16 @@ class $$ObligationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isVariableAmount => $composableBuilder(
+    column: $table.isVariableAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get estimatedAmount => $composableBuilder(
+    column: $table.estimatedAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$FinanceCategoriesTableFilterComposer get categoryId {
     final $$FinanceCategoriesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -12522,6 +12820,29 @@ class $$ObligationsTableFilterComposer
     final $$FinanceAccountsTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.loanAccountId,
+      referencedTable: $db.financeAccounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinanceAccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.financeAccounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FinanceAccountsTableFilterComposer get accountId {
+    final $$FinanceAccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
       referencedTable: $db.financeAccounts,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -12616,6 +12937,16 @@ class $$ObligationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isVariableAmount => $composableBuilder(
+    column: $table.isVariableAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get estimatedAmount => $composableBuilder(
+    column: $table.estimatedAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$FinanceCategoriesTableOrderingComposer get categoryId {
     final $$FinanceCategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12643,6 +12974,29 @@ class $$ObligationsTableOrderingComposer
     final $$FinanceAccountsTableOrderingComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.loanAccountId,
+      referencedTable: $db.financeAccounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinanceAccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.financeAccounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FinanceAccountsTableOrderingComposer get accountId {
+    final $$FinanceAccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
       referencedTable: $db.financeAccounts,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -12698,6 +13052,16 @@ class $$ObligationsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isVariableAmount => $composableBuilder(
+    column: $table.isVariableAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get estimatedAmount => $composableBuilder(
+    column: $table.estimatedAmount,
+    builder: (column) => column,
+  );
+
   $$FinanceCategoriesTableAnnotationComposer get categoryId {
     final $$FinanceCategoriesTableAnnotationComposer composer =
         $composerBuilder(
@@ -12726,6 +13090,29 @@ class $$ObligationsTableAnnotationComposer
     final $$FinanceAccountsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.loanAccountId,
+      referencedTable: $db.financeAccounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinanceAccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.financeAccounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FinanceAccountsTableAnnotationComposer get accountId {
+    final $$FinanceAccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
       referencedTable: $db.financeAccounts,
       getReferencedColumn: (t) => t.id,
       builder:
@@ -12788,6 +13175,7 @@ class $$ObligationsTableTableManager
           PrefetchHooks Function({
             bool categoryId,
             bool loanAccountId,
+            bool accountId,
             bool financeTransactionsRefs,
           })
         > {
@@ -12814,6 +13202,9 @@ class $$ObligationsTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> loanAccountId = const Value.absent(),
                 Value<DateTime?> skippedMonth = const Value.absent(),
+                Value<bool> isVariableAmount = const Value.absent(),
+                Value<double?> estimatedAmount = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ObligationsCompanion(
                 id: id,
@@ -12826,6 +13217,9 @@ class $$ObligationsTableTableManager
                 categoryId: categoryId,
                 loanAccountId: loanAccountId,
                 skippedMonth: skippedMonth,
+                isVariableAmount: isVariableAmount,
+                estimatedAmount: estimatedAmount,
+                accountId: accountId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12840,6 +13234,9 @@ class $$ObligationsTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> loanAccountId = const Value.absent(),
                 Value<DateTime?> skippedMonth = const Value.absent(),
+                Value<bool> isVariableAmount = const Value.absent(),
+                Value<double?> estimatedAmount = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ObligationsCompanion.insert(
                 id: id,
@@ -12852,6 +13249,9 @@ class $$ObligationsTableTableManager
                 categoryId: categoryId,
                 loanAccountId: loanAccountId,
                 skippedMonth: skippedMonth,
+                isVariableAmount: isVariableAmount,
+                estimatedAmount: estimatedAmount,
+                accountId: accountId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -12866,6 +13266,7 @@ class $$ObligationsTableTableManager
               ({
                 categoryId = false,
                 loanAccountId = false,
+                accountId = false,
                 financeTransactionsRefs = false,
               }) {
                 return PrefetchHooks(
@@ -12908,6 +13309,17 @@ class $$ObligationsTableTableManager
                                 ._loanAccountIdTable(db),
                             referencedColumn: $$ObligationsTableReferences
                                 ._loanAccountIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (accountId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.accountId,
+                            referencedTable: $$ObligationsTableReferences
+                                ._accountIdTable(db),
+                            referencedColumn: $$ObligationsTableReferences
+                                ._accountIdTable(db)
                                 .id,
                           ) as T;
                         }
@@ -12960,6 +13372,7 @@ typedef $$ObligationsTableProcessedTableManager =
       PrefetchHooks Function({
         bool categoryId,
         bool loanAccountId,
+        bool accountId,
         bool financeTransactionsRefs,
       })
     >;

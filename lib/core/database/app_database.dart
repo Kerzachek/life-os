@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -103,6 +103,13 @@ class AppDatabase extends _$AppDatabase {
         if (from < 9) {
           // Таблица, созданная на шаге v4, уже содержит эту колонку.
           await _addMissingColumns(m, obligations, [obligations.skippedMonth]);
+        }
+        if (from < 10) {
+          await _addMissingColumns(m, obligations, [
+            obligations.isVariableAmount,
+            obligations.estimatedAmount,
+            obligations.accountId,
+          ]);
         }
       },
     );

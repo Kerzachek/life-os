@@ -35,6 +35,7 @@ void main() {
         name: id,
         amount: amount,
         dueDay: 20,
+        isVariableAmount: false,
       ),
       isPaid: paid,
     );

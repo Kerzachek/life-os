@@ -13,6 +13,7 @@ class ObligationTile extends StatelessWidget {
     required this.status,
     required this.onChanged,
     this.onEdit,
+    this.onEditTemplate,
     this.onSkip,
     this.onUndoSkip,
   });
@@ -24,6 +25,9 @@ class ObligationTile extends StatelessWidget {
 
   /// Быстрая правка даты и суммы ближайшего списания (только рассрочки).
   final VoidCallback? onEdit;
+
+  /// Редактирование шаблона платежа (не для платежей кредитов).
+  final VoidCallback? onEditTemplate;
 
   /// Пропуск периода без списания. Передаётся только в режиме
   /// администратора — иначе кнопки нет.
@@ -51,7 +55,9 @@ class ObligationTile extends StatelessWidget {
   }
 
   String _caption() {
-    final amount = formatMoney(status.paidAmount ?? status.amount);
+    final money = formatMoney(status.paidAmount ?? status.amount);
+    // Плавающий платёж до оплаты показывается оценкой.
+    final amount = status.isVariable && !status.isPaid ? '≈ $money' : money;
     final days = status.daysUntilDue;
     switch (status.urgency) {
       case ObligationUrgency.paid:
@@ -101,9 +107,7 @@ class ObligationTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       // Material, а не DecoratedBox: иначе ListTile не отрисует отклик на нажатие.
       child: Material(
-        color: highlighted
-            ? color.withValues(alpha: 0.10)
-            : Colors.transparent,
+        color: highlighted ? color.withValues(alpha: 0.10) : Colors.transparent,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -136,7 +140,19 @@ class ObligationTile extends StatelessWidget {
               ),
               if (status.isFlexible) ...[
                 const SizedBox(width: 6),
-                _SplitBadge(key: ValueKey('split_badge_${o.id}')),
+                _Badge(
+                  key: ValueKey('split_badge_${o.id}'),
+                  label: 'Сплит',
+                  color: AppTheme.secondaryAccent,
+                ),
+              ],
+              if (status.isVariable) ...[
+                const SizedBox(width: 6),
+                _Badge(
+                  key: ValueKey('variable_badge_${o.id}'),
+                  label: 'Плавающий',
+                  color: AppTheme.primaryAccent,
+                ),
               ],
             ],
           ),
@@ -188,6 +204,14 @@ class ObligationTile extends StatelessWidget {
           icon: const Icon(Icons.edit_outlined, size: 18),
           onPressed: onEdit,
         ),
+      if (onEditTemplate != null)
+        IconButton(
+          key: ValueKey('edit_obligation_$id'),
+          tooltip: 'Редактировать платёж',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.tune_rounded, size: 18),
+          onPressed: onEditTemplate,
+        ),
     ];
     if (buttons.isEmpty) return attention;
     return Row(
@@ -197,13 +221,16 @@ class ObligationTile extends StatelessWidget {
   }
 }
 
-/// Бейдж платежа по рассрочке с плавающим графиком.
-class _SplitBadge extends StatelessWidget {
-  const _SplitBadge({super.key});
+/// Бейдж платежа: «Сплит» (рассрочка с плавающим графиком) или
+/// «Плавающий» (плавающая сумма).
+class _Badge extends StatelessWidget {
+  const _Badge({super.key, required this.label, required this.color});
+
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    const color = AppTheme.secondaryAccent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
@@ -212,11 +239,9 @@ class _SplitBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.6)),
       ),
       child: Text(
-        'Сплит',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }

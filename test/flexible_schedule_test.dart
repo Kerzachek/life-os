@@ -41,6 +41,7 @@ final _obligation = ObligationEntity(
   name: 'Кредит: Сплит',
   amount: 1000,
   dueDay: 1,
+  isVariableAmount: false,
   loanAccountId: 'loan',
 );
 

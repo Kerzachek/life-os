@@ -123,8 +123,13 @@ class ObligationStatus {
   /// берутся из ближайшего списания кредита.
   final bool isFlexible;
 
-  /// Сумма к оплате.
+  /// Сумма к оплате. Для плавающего платежа до оплаты — оценка
+  /// ([obligationEstimate]), после — фактически уплаченная сумма.
   double get amount => dueAmount ?? obligation.amount;
+
+  /// Платёж с плавающей суммой (ЖКХ, свет): фактическая сумма вводится
+  /// при оплате.
+  bool get isVariable => obligation.isVariableAmount && !isFlexible;
 
   /// Платёж ещё предстоит оплатить в этом месяце.
   bool get isOutstanding => !isPaid && !isSkipped;
@@ -218,6 +223,57 @@ FinanceTransactionEntity? findObligationPayment(
   return null;
 }
 
+/// Сколько последних оплат учитывается в медиане плавающего платежа.
+const int variableEstimateWindow = 6;
+
+/// Прошлые оплаты [obligation] (расходы с её `obligation_id`), от новых к
+/// старым.
+List<FinanceTransactionEntity> obligationPaymentHistory(
+  ObligationEntity obligation,
+  Iterable<FinanceTransactionEntity> transactions,
+) {
+  return transactions
+      .where((t) =>
+          t.deletedAt == null &&
+          isExpense(t) &&
+          t.obligationId == obligation.id)
+      .toList()
+    ..sort((a, b) => b.date.compareTo(a.date));
+}
+
+/// Медиана [values]; `null` для пустого списка.
+double? median(Iterable<double> values) {
+  final sorted = values.toList()..sort();
+  if (sorted.isEmpty) return null;
+  final mid = sorted.length ~/ 2;
+  final value = sorted.length.isOdd
+      ? sorted[mid]
+      : (sorted[mid - 1] + sorted[mid]) / 2;
+  return (value * 100).round() / 100;
+}
+
+/// Медиана последних [variableEstimateWindow] оплат [obligation]; `null`,
+/// если оплат ещё не было.
+double? obligationMedianPayment(
+  ObligationEntity obligation,
+  Iterable<FinanceTransactionEntity> transactions,
+) {
+  return median(obligationPaymentHistory(obligation, transactions)
+      .take(variableEstimateWindow)
+      .map((t) => t.amount));
+}
+
+/// Оценка суммы плавающего платежа для планирования: ручной ориентир
+/// (`estimatedAmount`), иначе медиана прошлых оплат, иначе сумма шаблона.
+double obligationEstimate(
+  ObligationEntity obligation,
+  Iterable<FinanceTransactionEntity> transactions,
+) {
+  return obligation.estimatedAmount ??
+      obligationMedianPayment(obligation, transactions) ??
+      obligation.amount;
+}
+
 /// Пропущен ли платёж [obligation] за [month] в режиме администратора.
 bool isObligationSkipped(ObligationEntity obligation, DateTime month) {
   final skipped = obligation.skippedMonth;
@@ -252,6 +308,10 @@ List<ObligationStatus> buildObligationStatuses(
     }
     final days = daysUntilObligationDue(o.dueDay, month, today);
     final skipped = payment == null && isObligationSkipped(o, month);
+    // Плавающий платёж: до оплаты — оценка, после — фактическая сумма.
+    final dueAmount = !o.isVariableAmount
+        ? null
+        : payment?.amount ?? obligationEstimate(o, txs);
     if (skipped) {
       result.add(ObligationStatus(
         obligation: o,
@@ -259,6 +319,7 @@ List<ObligationStatus> buildObligationStatuses(
         isSkipped: true,
         daysUntilDue: days,
         dueDate: obligationDueDate(o.dueDay, month),
+        dueAmount: dueAmount,
         urgency: ObligationUrgency.skipped,
       ));
       continue;
@@ -267,6 +328,7 @@ List<ObligationStatus> buildObligationStatuses(
       obligation: o,
       isPaid: payment != null,
       paidAmount: payment?.amount,
+      dueAmount: dueAmount,
       daysUntilDue: days,
       dueDate: obligationDueDate(o.dueDay, month),
       urgency: obligationUrgency(

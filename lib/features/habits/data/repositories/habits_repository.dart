@@ -20,7 +20,10 @@ class HabitsRepository {
   Stream<List<HabitEntity>> watchHabits() {
     return (_db.select(_db.habits)
           ..where((h) => h.deletedAt.isNull() & h.isArchived.equals(false))
-          ..orderBy([(h) => OrderingTerm(expression: h.createdAt, mode: OrderingMode.asc)]))
+          ..orderBy([
+            (h) =>
+                OrderingTerm(expression: h.createdAt, mode: OrderingMode.asc),
+          ]))
         .watch();
   }
 
@@ -28,7 +31,12 @@ class HabitsRepository {
   Stream<List<HabitLogEntity>> watchAllHabitLogs() {
     return (_db.select(_db.habitLogs)
           ..where((l) => l.deletedAt.isNull())
-          ..orderBy([(l) => OrderingTerm(expression: l.completedAt, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (l) => OrderingTerm(
+              expression: l.completedAt,
+              mode: OrderingMode.desc,
+            ),
+          ]))
         .watch();
   }
 
@@ -58,6 +66,32 @@ class HabitsRepository {
     await _db.into(_db.habits).insert(companion);
   }
 
+  /// Обновление параметров привычки. Логи выполнения (а значит, история и
+  /// серии) привязаны к id привычки и не затрагиваются.
+  Future<void> updateHabit({
+    required String id,
+    required String title,
+    String? description,
+    HabitFrequencyType frequencyType = HabitFrequencyType.daily,
+    int targetValue = 1,
+    String? unit,
+    String? color,
+    String? icon,
+  }) async {
+    await (_db.update(_db.habits)..where((h) => h.id.equals(id))).write(
+      HabitsCompanion(
+        title: Value(title),
+        description: Value(description),
+        frequencyType: Value(frequencyType.value),
+        targetValue: Value(targetValue),
+        unit: Value(unit),
+        color: Value(color),
+        icon: Value(icon),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
   /// Переключение выполнения привычки за дату (check-in / toggle)
   Future<void> toggleHabitCheckIn({
     required String habitId,
@@ -67,9 +101,9 @@ class HabitsRepository {
     final now = DateTime.now().toUtc();
     final dateLocal = DateTime(date.year, date.month, date.day);
 
-    final existingLogs = await (_db.select(_db.habitLogs)
-          ..where((l) => l.habitId.equals(habitId) & l.deletedAt.isNull()))
-        .get();
+    final existingLogs = await (_db.select(
+      _db.habitLogs,
+    )..where((l) => l.habitId.equals(habitId) & l.deletedAt.isNull())).get();
 
     HabitLogEntity? todayLog;
     for (final log in existingLogs) {
@@ -84,11 +118,10 @@ class HabitsRepository {
 
     if (todayLog != null) {
       // Отменяем запись
-      await (_db.update(_db.habitLogs)..where((l) => l.id.equals(todayLog!.id))).write(
-        HabitLogsCompanion(
-          deletedAt: Value(now),
-          updatedAt: Value(now),
-        ),
+      await (_db.update(
+        _db.habitLogs,
+      )..where((l) => l.id.equals(todayLog!.id))).write(
+        HabitLogsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
       );
     } else {
       // Добавляем запись о выполнении
@@ -108,10 +141,7 @@ class HabitsRepository {
   Future<void> deleteHabit(String id) async {
     final now = DateTime.now().toUtc();
     await (_db.update(_db.habits)..where((h) => h.id.equals(id))).write(
-      HabitsCompanion(
-        deletedAt: Value(now),
-        updatedAt: Value(now),
-      ),
+      HabitsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   }
 
@@ -119,7 +149,10 @@ class HabitsRepository {
   Stream<List<ChallengeEntity>> watchActiveChallenges() {
     return (_db.select(_db.challenges)
           ..where((c) => c.deletedAt.isNull())
-          ..orderBy([(c) => OrderingTerm(expression: c.startDate, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (c) =>
+                OrderingTerm(expression: c.startDate, mode: OrderingMode.desc),
+          ]))
         .watch();
   }
 

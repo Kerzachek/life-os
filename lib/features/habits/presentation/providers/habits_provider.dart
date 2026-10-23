@@ -15,12 +15,16 @@ final rawHabitLogsStreamProvider = StreamProvider<List<HabitLogEntity>>((ref) {
   return repo.watchAllHabitLogs();
 });
 
-final activeChallengesStreamProvider = StreamProvider<List<ChallengeEntity>>((ref) {
+final activeChallengesStreamProvider = StreamProvider<List<ChallengeEntity>>((
+  ref,
+) {
   final repo = ref.watch(habitsRepositoryProvider);
   return repo.watchActiveChallenges();
 });
 
-final habitsWithStatusProvider = Provider<AsyncValue<List<HabitWithStatus>>>((ref) {
+final habitsWithStatusProvider = Provider<AsyncValue<List<HabitWithStatus>>>((
+  ref,
+) {
   final habitsAsync = ref.watch(rawHabitsStreamProvider);
   final logsAsync = ref.watch(rawHabitLogsStreamProvider);
 
@@ -98,6 +102,7 @@ class HabitsController {
     int targetValue = 1,
     String? unit,
     String? color,
+    String? icon,
   }) async {
     await _repository.createHabit(
       title: title,
@@ -106,6 +111,29 @@ class HabitsController {
       targetValue: targetValue,
       unit: unit,
       color: color,
+      icon: icon,
+    );
+  }
+
+  Future<void> updateHabit({
+    required String id,
+    required String title,
+    String? description,
+    HabitFrequencyType frequencyType = HabitFrequencyType.daily,
+    int targetValue = 1,
+    String? unit,
+    String? color,
+    String? icon,
+  }) async {
+    await _repository.updateHabit(
+      id: id,
+      title: title,
+      description: description,
+      frequencyType: frequencyType,
+      targetValue: targetValue,
+      unit: unit,
+      color: color,
+      icon: icon,
     );
   }
 

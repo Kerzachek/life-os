@@ -4,13 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/finance_calculations.dart';
 import '../providers/finance_provider.dart';
 import 'confirm_dialog.dart';
 import 'finance_format.dart';
 import 'obligation_dialog.dart';
 
 /// Раздел «Обязательные платежи» в настройках: управление шаблонами
-/// (название, сумма, число месяца, категория).
+/// (название, сумма или плавающая сумма, число месяца, категория, счёт).
 class ObligationTemplatesSection extends ConsumerWidget {
   const ObligationTemplatesSection({super.key});
 
@@ -96,8 +97,13 @@ class _TemplateTile extends ConsumerWidget {
     final isLoan = o.loanAccountId != null;
     final loan = ref.watch(financeAccountMapProvider)[o.loanAccountId];
     final nextDate = loan?.nextPaymentDate;
+    final transactions =
+        ref.watch(financeTransactionsProvider).value ?? const [];
     final parts = [
-      formatMoney(o.amount),
+      if (o.isVariableAmount)
+        'плавающая, ≈ ${formatMoney(obligationEstimate(o, transactions))}'
+      else
+        formatMoney(o.amount),
       if (loan != null && loan.isFlexibleSchedule)
         nextDate == null
             ? 'плавающий график'

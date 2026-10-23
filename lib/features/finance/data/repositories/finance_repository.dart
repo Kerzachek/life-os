@@ -543,6 +543,9 @@ class FinanceRepository {
     required int dueDay,
     String? categoryId,
     String? loanAccountId,
+    String? accountId,
+    bool isVariableAmount = false,
+    double? estimatedAmount,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now().toUtc();
@@ -556,11 +559,17 @@ class FinanceRepository {
             dueDay: Value(dueDay.clamp(1, 31)),
             categoryId: Value(categoryId),
             loanAccountId: Value(loanAccountId),
+            accountId: Value(accountId),
+            isVariableAmount: Value(isVariableAmount),
+            estimatedAmount:
+                Value(isVariableAmount ? _roundOrNull(estimatedAmount) : null),
           ),
         );
     return id;
   }
 
+  /// Обновляет шаблон платежа. Оплаты остаются в ленте, а значит, и
+  /// история плавающего платежа для медианы сохраняется.
   Future<void> updateObligation({
     required String id,
     required String name,
@@ -568,6 +577,9 @@ class FinanceRepository {
     required int dueDay,
     String? categoryId,
     String? loanAccountId,
+    String? accountId,
+    bool isVariableAmount = false,
+    double? estimatedAmount,
   }) async {
     await (_db.update(_db.obligations)..where((o) => o.id.equals(id))).write(
       ObligationsCompanion(
@@ -576,10 +588,15 @@ class FinanceRepository {
         dueDay: Value(dueDay.clamp(1, 31)),
         categoryId: Value(categoryId),
         loanAccountId: Value(loanAccountId),
+        accountId: Value(accountId),
+        isVariableAmount: Value(isVariableAmount),
+        estimatedAmount:
+            Value(isVariableAmount ? _roundOrNull(estimatedAmount) : null),
         updatedAt: Value(DateTime.now().toUtc()),
       ),
     );
   }
+
 
   Future<void> deleteObligation(String id) async {
     final now = DateTime.now().toUtc();
@@ -619,9 +636,12 @@ class FinanceRepository {
       return false;
     }
 
+    // Плавающий платёж без указанной суммы списывается по оценке.
     final paid = amount ??
         (flexible ? loan!.nextPaymentAmount : null) ??
-        obligation.amount;
+        (obligation.isVariableAmount
+            ? obligationEstimate(obligation, transactions)
+            : obligation.amount);
     await _db.transaction(() async {
       await createTransaction(
         type: FinanceTransactionType.expense,

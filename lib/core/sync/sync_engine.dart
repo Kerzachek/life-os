@@ -32,6 +32,19 @@ FinanceAccountEntity financeAccountFromSyncJson(
   );
 }
 
+/// [ObligationEntity.fromJson] с поддержкой снимков старых версий, где ещё
+/// нет полей плавающей суммы (`isVariableAmount` → `false`,
+/// `estimatedAmount` / `accountId` → `null`).
+ObligationEntity obligationFromSyncJson(
+  Map<String, dynamic> json, {
+  ValueSerializer? serializer,
+}) {
+  return ObligationEntity.fromJson(
+    {...json, 'isVariableAmount': json['isVariableAmount'] ?? false},
+    serializer: serializer,
+  );
+}
+
 /// Движок построчного слияния локальной БД с облачным снимком
 /// (Last-Write-Wins по `updatedAt` / `deletedAt`).
 ///
@@ -100,7 +113,7 @@ class SyncEngine {
       name: 'obligations',
       db: _db,
       table: _db.obligations,
-      fromJson: ObligationEntity.fromJson,
+      fromJson: obligationFromSyncJson,
     ),
     DriftSyncTable(
       name: 'finance_transactions',

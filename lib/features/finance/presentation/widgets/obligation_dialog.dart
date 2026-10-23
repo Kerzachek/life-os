@@ -4,11 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/finance_calculations.dart';
 import '../../domain/finance_category_presets.dart';
+import '../../domain/finance_enums.dart';
 import '../providers/finance_provider.dart';
 import 'finance_format.dart';
 
-/// Форма добавления / редактирования обязательного платежа.
+/// Форма добавления / редактирования обязательного платежа: название,
+/// сумма, день списания, категория, счёт списания и признак плавающей суммы
+/// (с ручным ориентиром или медианой прошлых оплат).
 class ObligationDialog extends ConsumerStatefulWidget {
   const ObligationDialog({super.key, this.obligation});
 
@@ -23,7 +27,11 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
   late final TextEditingController _name;
   late final TextEditingController _amount;
   late final TextEditingController _day;
+  late final TextEditingController _estimate;
   String? _categoryId;
+  String? _accountId;
+  late bool _isVariable;
+  late bool _manualEstimate;
 
   bool get _isEdit => widget.obligation != null;
 
@@ -34,7 +42,13 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
     _name = TextEditingController(text: o?.name ?? '');
     _amount = TextEditingController(text: o == null ? '' : '${o.amount}');
     _day = TextEditingController(text: '${o?.dueDay ?? 1}');
+    _estimate = TextEditingController(
+      text: o?.estimatedAmount == null ? '' : '${o!.estimatedAmount}',
+    );
     _categoryId = o?.categoryId ?? FinanceCategoryIds.obligations;
+    _accountId = o?.accountId;
+    _isVariable = o?.isVariableAmount ?? false;
+    _manualEstimate = o?.estimatedAmount != null;
   }
 
   @override
@@ -42,6 +56,7 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
     _name.dispose();
     _amount.dispose();
     _day.dispose();
+    _estimate.dispose();
     super.dispose();
   }
 
@@ -50,6 +65,9 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
     final repo = ref.read(financeRepositoryProvider);
     final amount = parseMoney(_amount.text)!;
     final day = int.parse(_day.text.trim());
+    final estimate = _isVariable && _manualEstimate
+        ? parseMoney(_estimate.text)
+        : null;
     final navigator = Navigator.of(context);
 
     if (_isEdit) {
@@ -60,6 +78,9 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
         dueDay: day,
         categoryId: _categoryId,
         loanAccountId: widget.obligation!.loanAccountId,
+        accountId: _accountId,
+        isVariableAmount: _isVariable,
+        estimatedAmount: estimate,
       );
     } else {
       await repo.createObligation(
@@ -67,20 +88,46 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
         amount: amount,
         dueDay: day,
         categoryId: _categoryId,
+        accountId: _accountId,
+        isVariableAmount: _isVariable,
+        estimatedAmount: estimate,
       );
     }
     navigator.pop();
   }
 
+  /// Подпись к автоматической оценке: медиана прошлых оплат или базовая сумма.
+  String _medianHint() {
+    final o = widget.obligation;
+    final transactions = ref.watch(financeTransactionsProvider).value;
+    if (o == null || transactions == null) {
+      return 'Пока нет оплат — для бюджета берётся базовая сумма';
+    }
+    final history = obligationPaymentHistory(o, transactions);
+    final value = obligationMedianPayment(o, transactions);
+    if (value == null) {
+      return 'Пока нет оплат — для бюджета берётся базовая сумма';
+    }
+    final count = history.length.clamp(0, variableEstimateWindow);
+    return 'Медиана последних оплат ($count): ${formatMoney(value)}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final categories = (ref.watch(financeCategoriesProvider).value ?? const [])
         .where((c) => !c.isIncome)
         .toList();
     final validCategory = categories.any((c) => c.id == _categoryId);
+    final accounts = (ref.watch(financeAccountsProvider).value ?? const [])
+        .where((a) => a.kind == FinanceAccountKind.account.value)
+        .toList();
+    final validAccount = accounts.any((a) => a.id == _accountId);
 
     return AdaptiveFormDialog(
-      title: Text(_isEdit ? 'Редактировать платёж' : 'Новый обязательный платёж'),
+      title: Text(
+        _isEdit ? 'Редактировать платёж' : 'Новый обязательный платёж',
+      ),
       content: SizedBox(
         width: 380,
         child: SingleChildScrollView(
@@ -92,7 +139,7 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
                 TextFormField(
                   key: const ValueKey('obligation_name'),
                   controller: _name,
-                  autofocus: true,
+                  autofocus: !_isEdit,
                   decoration: const InputDecoration(
                     labelText: 'Название *',
                     hintText: 'Аренда, ЖКХ, интернет...',
@@ -104,16 +151,20 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
                 ),
                 const SizedBox(height: 12),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: TextFormField(
                         key: const ValueKey('obligation_amount'),
                         controller: _amount,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Сумма *',
-                          border: OutlineInputBorder(),
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: _isVariable
+                              ? 'Базовая сумма *'
+                              : 'Сумма *',
+                          border: const OutlineInputBorder(),
                         ),
                         validator: (v) {
                           final n = parseMoney(v);
@@ -133,9 +184,7 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
                         ),
                         validator: (v) {
                           final n = int.tryParse(v?.trim() ?? '');
-                          return (n == null || n < 1 || n > 31)
-                              ? '1–31'
-                              : null;
+                          return (n == null || n < 1 || n > 31) ? '1–31' : null;
                         },
                       ),
                     ),
@@ -154,6 +203,71 @@ class _ObligationDialogState extends ConsumerState<ObligationDialog> {
                   ],
                   onChanged: (v) => setState(() => _categoryId = v),
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  key: const ValueKey('obligation_account'),
+                  initialValue: validAccount ? _accountId : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Счёт списания',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Выбирать при оплате'),
+                    ),
+                    for (final a in accounts)
+                      DropdownMenuItem<String?>(
+                        value: a.id,
+                        child: Text(a.name),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _accountId = v),
+                ),
+                const SizedBox(height: 4),
+                SwitchListTile(
+                  key: const ValueKey('obligation_variable'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _isVariable,
+                  onChanged: (v) => setState(() => _isVariable = v),
+                  title: const Text('Плавающая сумма'),
+                  subtitle: const Text(
+                    'ЖКХ, свет, счётчики: точная сумма вводится при оплате',
+                  ),
+                ),
+                if (_isVariable) ...[
+                  SwitchListTile(
+                    key: const ValueKey('obligation_manual_estimate'),
+                    contentPadding: EdgeInsets.zero,
+                    value: _manualEstimate,
+                    onChanged: (v) => setState(() => _manualEstimate = v),
+                    title: const Text('Задать ориентир вручную'),
+                    subtitle: Text(
+                      _manualEstimate
+                          ? 'Бюджет планируется по указанной сумме'
+                          : _medianHint(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (_manualEstimate)
+                    TextFormField(
+                      key: const ValueKey('obligation_estimate'),
+                      controller: _estimate,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Ориентир для бюджета *',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        final n = parseMoney(v);
+                        return (n == null || n <= 0) ? 'Сумма > 0' : null;
+                      },
+                    ),
+                ],
               ],
             ),
           ),

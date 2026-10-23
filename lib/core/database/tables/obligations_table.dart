@@ -25,4 +25,19 @@ class Obligations extends Table with SyncableTable {
   /// Месяц (первое число), за который платёж пропущен в режиме
   /// администратора: без операции и без списания со счёта.
   DateTimeColumn get skippedMonth => dateTime().nullable()();
+
+  /// Плавающая сумма (ЖКХ, свет, счётчики): сумма к оплате — оценка, а
+  /// фактическая вводится при оплате. История оплат — расходы с
+  /// `obligation_id` этого платежа.
+  BoolColumn get isVariableAmount =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Ручной ориентир для плавающего платежа. `null` — оценка считается
+  /// медианой прошлых оплат (а без истории берётся [amount]).
+  RealColumn get estimatedAmount => real().nullable()();
+
+  /// Счёт списания по умолчанию.
+  @ReferenceName('payerObligations')
+  TextColumn get accountId =>
+      text().nullable().references(FinanceAccounts, #id)();
 }

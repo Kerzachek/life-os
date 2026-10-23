@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/responsive.dart';
+import '../../domain/habit_appearance.dart';
 import '../../domain/habit_with_status.dart';
 import '../providers/habits_provider.dart';
+import 'add_habit_dialog.dart';
 import 'streak_badge.dart';
 
 class HabitCard extends ConsumerWidget {
@@ -15,6 +18,7 @@ class HabitCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final habit = item.habit;
     final isCompleted = item.isCompletedToday;
+    final accent = habitColorFromHex(habit.color) ?? theme.colorScheme.primary;
 
     final unitText = habit.unit != null && habit.unit!.isNotEmpty
         ? '${habit.targetValue} ${habit.unit}'
@@ -27,88 +31,105 @@ class HabitCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isCompleted
-              ? theme.colorScheme.primary.withValues(alpha: 0.5)
+              ? accent.withValues(alpha: 0.5)
               : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           width: isCompleted ? 1.5 : 1,
         ),
       ),
       color: isCompleted
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.25)
+          ? accent.withValues(alpha: 0.12)
           : theme.colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: () {
-                ref.read(habitsControllerProvider).toggleHabitToday(habit);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isCompleted
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.surfaceContainerHigh,
-                ),
-                child: Icon(
-                  isCompleted ? Icons.check : Icons.local_fire_department_outlined,
-                  color: isCompleted
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.onSurfaceVariant,
-                  size: 24,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openEditor(context),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () {
+                  ref.read(habitsControllerProvider).toggleHabitToday(habit);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCompleted
+                        ? accent
+                        : theme.colorScheme.surfaceContainerHigh,
+                  ),
+                  child: Icon(
+                    isCompleted ? Icons.check : habitIconByKey(habit.icon),
+                    color: isCompleted ? theme.colorScheme.onPrimary : accent,
+                    size: 24,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    habit.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (habit.description?.isNotEmpty == true) ...[
-                    const SizedBox(height: 2),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      habit.description!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      habit.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
+                    if (habit.description?.isNotEmpty == true) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        unitText,
-                        style: theme.textTheme.labelMedium?.copyWith(
+                        habit.description!,
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 8),
-                      StreakBadge(streakCount: item.streakCount),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          unitText,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        StreakBadge(streakCount: item.streakCount),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              color: theme.colorScheme.onSurfaceVariant,
-              onPressed: () => _confirmDelete(context, ref),
-            ),
-          ],
+              IconButton(
+                key: ValueKey('habit_edit_${habit.id}'),
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                tooltip: 'Редактировать',
+                color: theme.colorScheme.onSurfaceVariant,
+                onPressed: () => _openEditor(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                tooltip: 'Удалить',
+                color: theme.colorScheme.onSurfaceVariant,
+                onPressed: () => _confirmDelete(context, ref),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  void _openEditor(BuildContext context) {
+    showFormSheet(
+      context: context,
+      builder: (_) => AddHabitDialog(habit: item.habit),
     );
   }
 
