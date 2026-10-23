@@ -11,6 +11,7 @@ import 'core/sync/google_drive_sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_sidebar.dart';
 import 'core/widgets/responsive.dart';
+import 'features/finance/presentation/providers/finance_provider.dart';
 import 'features/finance/presentation/screens/finance_screen.dart';
 import 'features/habits/presentation/screens/habits_screen.dart';
 import 'features/notes/presentation/screens/notes_screen.dart';
@@ -75,9 +76,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
-  void _openSettings() {
+  void _openSettings() => _select(AppSidebar.settingsIndex);
+
+  /// Переход между разделами. Уход с «Финансов» выключает режим
+  /// администратора.
+  void _select(int index) {
+    if (index != AppSidebar.financeIndex) {
+      ref.read(financeAdminModeProvider.notifier).disable();
+    }
     setState(() {
-      _currentIndex = AppSidebar.settingsIndex;
+      _currentIndex = index;
     });
   }
 
@@ -109,6 +117,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final enabledModules = ref.watch(enabledModulesProvider);
     // Держит планировщик уведомлений (и его подписки на данные) активным.
     ref.watch(notificationSchedulerProvider);
+    // Раздел «Финансы» отключили (в т.ч. синхронизацией) — режим не нужен.
+    ref.listen(enabledModulesProvider, (_, modules) {
+      if (!modules.contains(AppModule.finance)) {
+        ref.read(financeAdminModeProvider.notifier).disable();
+      }
+    });
 
     bool isVisible(int index) {
       final module = _moduleByIndex[index];
@@ -118,12 +132,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Если текущий раздел отключён — возвращаемся на дашборд.
     final effectiveIndex =
         isVisible(_currentIndex) ? _currentIndex : AppSidebar.dashboardIndex;
-
-    void select(int index) {
-      setState(() {
-        _currentIndex = index;
-      });
-    }
 
     // Все разделы живут в одном маршруте, и их FAB-кнопки делят hero-тег
     // по умолчанию: без HeroMode переход на полноэкранную страницу
@@ -151,7 +159,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           children: [
             NavigationRail(
               selectedIndex: selectedPosition,
-              onDestinationSelected: (i) => select(items[i].index),
+              onDestinationSelected: (i) => _select(items[i].index),
               labelType: NavigationRailLabelType.none,
               minWidth: 56,
               scrollable: true,
@@ -182,7 +190,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           height: 64,
           selectedIndex: selectedPosition,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          onDestinationSelected: (i) => select(items[i].index),
+          onDestinationSelected: (i) => _select(items[i].index),
           destinations: [
             for (final item in items)
               NavigationDestination(icon: Icon(item.icon), label: item.label),
@@ -198,7 +206,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           children: [
             AppSidebar(
               selectedIndex: effectiveIndex,
-              onDestinationSelected: select,
+              onDestinationSelected: _select,
             ),
             Expanded(child: screens),
           ],

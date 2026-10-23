@@ -55,6 +55,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Персонализация приложения'), findsOneWidget);
 
+    // Сначала размонтировать приложение (отписка от стримов drift),
+    // затем закрыть базу — иначе close() ждёт незавершённый запрос.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
     await testDb.close();
   });
 }

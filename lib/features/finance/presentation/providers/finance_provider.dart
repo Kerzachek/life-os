@@ -37,6 +37,22 @@ final financeObligationsProvider = StreamProvider<List<ObligationEntity>>((ref) 
 
 // ----------------------------------------------------------- Состояние UI
 
+/// Временный режим администратора: открывает ручной пропуск обязательных
+/// платежей. Не сохраняется и сбрасывается при уходе с экрана «Финансы».
+class FinanceAdminModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+
+  void disable() => state = false;
+}
+
+final financeAdminModeProvider =
+    NotifierProvider<FinanceAdminModeNotifier, bool>(
+  FinanceAdminModeNotifier.new,
+);
+
 /// Месяц, выбранный для обзора (всегда первое число месяца).
 class SelectedMonthNotifier extends Notifier<DateTime> {
   @override

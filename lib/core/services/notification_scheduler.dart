@@ -90,7 +90,7 @@ NotificationMessage? buildHabitsReminder(
 /// Напоминание о неоплаченных обязательных платежах, срок которых близко.
 NotificationMessage? buildPaymentsReminder(List<ObligationStatus> statuses) {
   final pending =
-      statuses.where((s) => !s.isPaid && s.needsAttention).toList();
+      statuses.where((s) => s.isOutstanding && s.needsAttention).toList();
   if (pending.isEmpty) return null;
   final overdue =
       pending.where((s) => s.urgency == ObligationUrgency.overdue).length;

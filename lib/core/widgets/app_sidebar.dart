@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/finance/presentation/providers/finance_provider.dart';
+import '../../features/finance/presentation/widgets/admin_mode.dart';
 import '../../features/settings/domain/app_module.dart';
 import '../services/update_service.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
+import '../theme/app_theme.dart';
 
 class NavigationItemData {
   final int index;
@@ -32,6 +35,7 @@ class AppSidebar extends ConsumerWidget {
   });
 
   static const int dashboardIndex = 0;
+  static const int financeIndex = 3;
   static const int settingsIndex = 6;
 
   /// Количество экранов в IndexedStack.
@@ -42,7 +46,7 @@ class AppSidebar extends ConsumerWidget {
     NavigationItemData(index: 4, label: 'Рутина', icon: Icons.wb_sunny_outlined, module: AppModule.routine),
     NavigationItemData(index: 1, label: 'Задачи', icon: Icons.task_alt_rounded, module: AppModule.tasks),
     NavigationItemData(index: 2, label: 'Привычки', icon: Icons.local_fire_department_rounded, module: AppModule.habits),
-    NavigationItemData(index: 3, label: 'Финансы', icon: Icons.account_balance_wallet_rounded, module: AppModule.finance),
+    NavigationItemData(index: financeIndex, label: 'Финансы', icon: Icons.account_balance_wallet_rounded, module: AppModule.finance),
     NavigationItemData(index: 5, label: 'Заметки', icon: Icons.sticky_note_2_outlined, module: AppModule.notes),
     NavigationItemData(index: settingsIndex, label: 'Настройки', icon: Icons.settings_rounded),
   ];
@@ -141,31 +145,67 @@ class AppSidebar extends ConsumerWidget {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: colorScheme.outline),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 12, backgroundColor: colorScheme.primary.withValues(alpha: 0.2), child: Text('E', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.primary))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('EGO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                        Text('Оператор', style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _ProfileCard(onFinanceScreen: selectedIndex == financeIndex),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Карточка профиля. На экране «Финансы» нажатие переключает режим
+/// администратора; на остальных экранах она не реагирует.
+class _ProfileCard extends ConsumerWidget {
+  const _ProfileCard({required this.onFinanceScreen});
+
+  final bool onFinanceScreen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final admin = onFinanceScreen && ref.watch(financeAdminModeProvider);
+    final accent = admin ? AppTheme.adminAccent : colorScheme.primary;
+
+    return Material(
+      color: admin
+          ? AppTheme.adminAccent.withValues(alpha: 0.12)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: admin ? AppTheme.adminAccent : colorScheme.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const ValueKey('sidebar_profile'),
+        onTap: onFinanceScreen ? () => toggleFinanceAdminMode(context, ref) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              CircleAvatar(radius: 12, backgroundColor: accent.withValues(alpha: 0.2), child: Text('E', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: accent))),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('EGO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        if (admin) ...[
+                          const SizedBox(width: 6),
+                          const AdminBadge(key: ValueKey('sidebar_admin_badge')),
+                        ],
+                      ],
+                    ),
+                    Text(admin ? 'Администратор' : 'Оператор', style: TextStyle(fontSize: 10, color: admin ? AppTheme.adminAccent : colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              if (onFinanceScreen)
+                Icon(admin ? Icons.lock_open_rounded : Icons.lock_outline_rounded, size: 16, color: admin ? AppTheme.adminAccent : colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
       ),
     );
   }

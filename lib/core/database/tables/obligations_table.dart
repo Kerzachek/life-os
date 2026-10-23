@@ -21,4 +21,8 @@ class Obligations extends Table with SyncableTable {
   @ReferenceName('obligations')
   TextColumn get loanAccountId =>
       text().nullable().references(FinanceAccounts, #id)();
+
+  /// Месяц (первое число), за который платёж пропущен в режиме
+  /// администратора: без операции и без списания со счёта.
+  DateTimeColumn get skippedMonth => dateTime().nullable()();
 }

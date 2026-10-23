@@ -690,6 +690,60 @@ class FinanceRepository {
     return true;
   }
 
+  /// Пропускает обязательный платёж за месяц [date] (по умолчанию —
+  /// текущий) в режиме администратора: операция не создаётся, балансы
+  /// не меняются. Возвращает `false`, если пропускать нечего.
+  ///
+  /// Ежемесячный платёж помечается пропущенным за этот месяц — следующий
+  /// срок наступит в следующем месяце. У рассрочки ближайшее списание
+  /// сдвигается на следующий шаг графика с прежней суммой.
+  Future<bool> skipObligation({
+    required String obligationId,
+    DateTime? date,
+  }) async {
+    final when = date ?? DateTime.now();
+    final obligation = await (_db.select(_db.obligations)
+          ..where((o) => o.id.equals(obligationId)))
+        .getSingle();
+    final loanId = obligation.loanAccountId;
+    final loan = loanId == null ? null : await _getAccount(loanId);
+
+    if (loan != null && loan.isFlexibleSchedule) {
+      final next = suggestNextFlexiblePayment(
+        loan: loan,
+        paidAmount: 0,
+        now: when,
+      );
+      if (next == null || loan.nextPaymentDate == null) return false;
+      await _db.transaction(() async {
+        await _writeNextPayment(loan.id, next.date, next.amount);
+        await _syncLoanObligation(loan.id);
+      });
+      return true;
+    }
+
+    if (findObligationPayment(obligation, await getTransactions(), when) !=
+            null ||
+        isObligationSkipped(obligation, when)) {
+      return false;
+    }
+    await (_db.update(_db.obligations)..where((o) => o.id.equals(obligationId)))
+        .write(ObligationsCompanion(
+      skippedMonth: Value(DateTime(when.year, when.month)),
+      updatedAt: Value(DateTime.now().toUtc()),
+    ));
+    return true;
+  }
+
+  /// Снимает отметку о пропуске ежемесячного платежа: он снова к оплате.
+  Future<void> undoSkipObligation(String obligationId) async {
+    await (_db.update(_db.obligations)..where((o) => o.id.equals(obligationId)))
+        .write(ObligationsCompanion(
+      skippedMonth: const Value(null),
+      updatedAt: Value(DateTime.now().toUtc()),
+    ));
+  }
+
   // -------------------------------------------------------------- Категории
 
   Future<String> createCategory({

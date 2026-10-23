@@ -79,6 +79,9 @@ enum ObligationUrgency {
 
   /// Оплачен за месяц.
   paid,
+
+  /// Пропущен за месяц в режиме администратора (без списания).
+  skipped,
 }
 
 /// Обязательный платёж со статусом оплаты за месяц.
@@ -92,10 +95,15 @@ class ObligationStatus {
     this.dueDate,
     this.dueAmount,
     this.isFlexible = false,
+    this.isSkipped = false,
   });
 
   final ObligationEntity obligation;
   final bool isPaid;
+
+  /// Период пропущен в режиме администратора: платить в этом месяце не
+  /// нужно, но и оплаченным платёж не считается.
+  final bool isSkipped;
 
   /// Фактически уплаченная сумма (если оплачен).
   final double? paidAmount;
@@ -117,6 +125,9 @@ class ObligationStatus {
 
   /// Сумма к оплате.
   double get amount => dueAmount ?? obligation.amount;
+
+  /// Платёж ещё предстоит оплатить в этом месяце.
+  bool get isOutstanding => !isPaid && !isSkipped;
 
   /// Платёж требует внимания: срок близко, наступил или прошёл.
   bool get needsAttention =>
@@ -207,6 +218,12 @@ FinanceTransactionEntity? findObligationPayment(
   return null;
 }
 
+/// Пропущен ли платёж [obligation] за [month] в режиме администратора.
+bool isObligationSkipped(ObligationEntity obligation, DateTime month) {
+  final skipped = obligation.skippedMonth;
+  return skipped != null && _sameMonth(skipped, month);
+}
+
 /// Статусы обязательных платежей за [month], упорядоченные: сначала
 /// неоплаченные по сроку, затем оплаченные. [now] — «сегодня» (для тестов).
 ///
@@ -234,6 +251,18 @@ List<ObligationStatus> buildObligationStatuses(
       continue;
     }
     final days = daysUntilObligationDue(o.dueDay, month, today);
+    final skipped = payment == null && isObligationSkipped(o, month);
+    if (skipped) {
+      result.add(ObligationStatus(
+        obligation: o,
+        isPaid: false,
+        isSkipped: true,
+        daysUntilDue: days,
+        dueDate: obligationDueDate(o.dueDay, month),
+        urgency: ObligationUrgency.skipped,
+      ));
+      continue;
+    }
     result.add(ObligationStatus(
       obligation: o,
       isPaid: payment != null,
@@ -247,7 +276,7 @@ List<ObligationStatus> buildObligationStatuses(
     ));
   }
   result.sort((a, b) {
-    if (a.isPaid != b.isPaid) return a.isPaid ? 1 : -1;
+    if (a.isOutstanding != b.isOutstanding) return a.isOutstanding ? -1 : 1;
     final byDate = a.dueDate != null && b.dueDate != null
         ? a.dueDate!.compareTo(b.dueDate!)
         : a.obligation.dueDay.compareTo(b.obligation.dueDay);
@@ -347,12 +376,15 @@ FinanceSummary buildSummary({
       .where((a) => a.deletedAt == null && a.kind == kind.value)
       .fold(0.0, (sum, a) => sum + a.balance);
 
-  final total = obligations.fold(0.0, (s, o) => s + o.amount);
+  // Пропущенные платежи в этом месяце не нужны — их нет ни в сумме, ни в долге.
+  final total = obligations
+      .where((o) => !o.isSkipped)
+      .fold(0.0, (s, o) => s + o.amount);
   final paid = obligations
       .where((o) => o.isPaid)
       .fold(0.0, (s, o) => s + (o.paidAmount ?? o.amount));
   final unpaid = obligations
-      .where((o) => !o.isPaid)
+      .where((o) => o.isOutstanding)
       .fold(0.0, (s, o) => s + o.amount);
   final balance = sumOf(FinanceAccountKind.account);
   // Переплата по кредитке (отрицательный долг) не уменьшает другие долги.
@@ -466,7 +498,7 @@ DailySafeBudgetState buildDailySafeBudget({
       : 0.0;
 
   final unpaid = obligations
-      .where((o) => !o.isPaid)
+      .where((o) => o.isOutstanding)
       .fold(0.0, (sum, o) => sum + o.amount);
 
   final spentToday = transactions.where((t) {

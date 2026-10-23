@@ -10,6 +10,7 @@ class AppTheme {
   static const Color secondaryAccent = Color(0xFF00CEC9); // Cyan
   static const Color fireAccent = Color(0xFFFF7675); // Flame / Coral
   static const Color successAccent = Color(0xFF00B894); // Green
+  static const Color adminAccent = Color(0xFFFFB300); // Amber — режим администратора
 
   static ThemeData get darkLauncherTheme {
     return ThemeData(

@@ -13,6 +13,8 @@ class ObligationTile extends StatelessWidget {
     required this.status,
     required this.onChanged,
     this.onEdit,
+    this.onSkip,
+    this.onUndoSkip,
   });
 
   final ObligationStatus status;
@@ -22,6 +24,13 @@ class ObligationTile extends StatelessWidget {
 
   /// Быстрая правка даты и суммы ближайшего списания (только рассрочки).
   final VoidCallback? onEdit;
+
+  /// Пропуск периода без списания. Передаётся только в режиме
+  /// администратора — иначе кнопки нет.
+  final VoidCallback? onSkip;
+
+  /// Отмена пропуска (только режим администратора).
+  final VoidCallback? onUndoSkip;
 
   static const Color _warning = Color(0xFFFF9F43);
   static const Color _danger = Color(0xFFFF6B6B);
@@ -36,6 +45,7 @@ class ObligationTile extends StatelessWidget {
       case ObligationUrgency.upcoming:
         return _warning;
       case ObligationUrgency.scheduled:
+      case ObligationUrgency.skipped:
         return theme.colorScheme.onSurfaceVariant;
     }
   }
@@ -54,6 +64,8 @@ class ObligationTile extends StatelessWidget {
         return '$amount · через ${_days(days)} (${_dueLabel()})';
       case ObligationUrgency.scheduled:
         return '$amount · до ${_dueLabel()}';
+      case ObligationUrgency.skipped:
+        return '$amount · пропущено в этом месяце';
     }
   }
 
@@ -148,19 +160,39 @@ class ObligationTile extends StatelessWidget {
             size: 20,
           )
         : null;
-    if (onEdit == null || status.isPaid) return attention;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ?attention,
+    final id = status.obligation.id;
+    final buttons = [
+      if (onSkip != null && status.isOutstanding)
         IconButton(
-          key: ValueKey('edit_next_payment_${status.obligation.id}'),
+          key: ValueKey('skip_$id'),
+          tooltip: 'Пропустить этот период',
+          visualDensity: VisualDensity.compact,
+          color: AppTheme.adminAccent,
+          icon: const Icon(Icons.skip_next_rounded, size: 20),
+          onPressed: onSkip,
+        ),
+      if (onUndoSkip != null && status.isSkipped)
+        IconButton(
+          key: ValueKey('undo_skip_$id'),
+          tooltip: 'Вернуть к оплате',
+          visualDensity: VisualDensity.compact,
+          color: AppTheme.adminAccent,
+          icon: const Icon(Icons.undo_rounded, size: 18),
+          onPressed: onUndoSkip,
+        ),
+      if (onEdit != null && !status.isPaid)
+        IconButton(
+          key: ValueKey('edit_next_payment_$id'),
           tooltip: 'Изменить ближайшее списание',
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.edit_outlined, size: 18),
           onPressed: onEdit,
         ),
-      ],
+    ];
+    if (buttons.isEmpty) return attention;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [?attention, ...buttons],
     );
   }
 }

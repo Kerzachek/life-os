@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/responsive.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/finance_provider.dart';
+import '../widgets/admin_mode.dart';
 import '../widgets/finance_overview_tab.dart';
 import '../widgets/finance_products_tab.dart';
 import '../widgets/finance_settings_tab.dart';
@@ -57,6 +59,11 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             children: [
+              // Без бокового меню (телефон) режим администратора включается
+              // долгим нажатием на заголовок или щит в шапке.
+              if (isMobileLayout(context) || isCompactLandscape(context))
+                const _FinanceHeader(),
+              const AdminModeStrip(),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final tabs = SegmentedButton<_FinanceTab>(
@@ -110,6 +117,62 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
               isExtended: !isCompactLandscape(context),
             )
           : null,
+    );
+  }
+}
+
+/// Шапка «Финансы» на телефоне. Долгое нажатие на заголовок или щит
+/// переключает режим администратора.
+class _FinanceHeader extends ConsumerWidget {
+  const _FinanceHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final admin = ref.watch(financeAdminModeProvider);
+    void toggle() => toggleFinanceAdminMode(context, ref);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              key: const ValueKey('finance_title'),
+              behavior: HitTestBehavior.opaque,
+              onLongPress: toggle,
+              child: Row(
+                children: [
+                  Text(
+                    'Финансы',
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (admin) ...[
+                    const SizedBox(width: 8),
+                    const AdminBadge(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            key: const ValueKey('finance_admin_shield'),
+            behavior: HitTestBehavior.opaque,
+            onLongPress: toggle,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                admin ? Icons.shield : Icons.shield_outlined,
+                size: 22,
+                color: admin
+                    ? AppTheme.adminAccent
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

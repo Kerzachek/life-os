@@ -121,10 +121,36 @@ class ObligationsCard extends ConsumerWidget {
     );
   }
 
+  /// Режим администратора: пропуск периода без операции и списания.
+  Future<void> _skip(
+    BuildContext context,
+    WidgetRef ref,
+    ObligationStatus status,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(financeRepositoryProvider);
+    final id = status.obligation.id;
+    final ok = await repo.skipObligation(obligationId: id);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(ok
+          ? 'Платёж пропущен без списания средств'
+          : 'Этот платёж нельзя пропустить'),
+      // Пропуск рассрочки сдвигает график — его откатывают правкой даты.
+      action: ok && !status.isFlexible
+          ? SnackBarAction(
+              label: 'Отменить',
+              onPressed: () => repo.undoSkipObligation(id),
+            )
+          : null,
+    ));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final statuses = ref.watch(obligationStatusesProvider);
+    final admin = ref.watch(financeAdminModeProvider);
     final summary = ref.watch(financeSummaryProvider).value;
 
     return Card(
@@ -183,6 +209,12 @@ class ObligationsCard extends ConsumerWidget {
                         onChanged: (paid) => _toggle(context, ref, s, paid),
                         onEdit: s.isFlexible
                             ? () => _editNextPayment(context, ref, s)
+                            : null,
+                        onSkip: admin ? () => _skip(context, ref, s) : null,
+                        onUndoSkip: admin
+                            ? () => ref
+                                .read(financeRepositoryProvider)
+                                .undoSkipObligation(s.obligation.id)
                             : null,
                       ),
                   ],

@@ -5345,6 +5345,17 @@ class $ObligationsTable extends Obligations
       'REFERENCES finance_accounts (id)',
     ),
   );
+  static const VerificationMeta _skippedMonthMeta = const VerificationMeta(
+    'skippedMonth',
+  );
+  @override
+  late final GeneratedColumn<DateTime> skippedMonth = GeneratedColumn<DateTime>(
+    'skipped_month',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5356,6 +5367,7 @@ class $ObligationsTable extends Obligations
     dueDay,
     categoryId,
     loanAccountId,
+    skippedMonth,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5433,6 +5445,15 @@ class $ObligationsTable extends Obligations
         ),
       );
     }
+    if (data.containsKey('skipped_month')) {
+      context.handle(
+        _skippedMonthMeta,
+        skippedMonth.isAcceptableOrUnknown(
+          data['skipped_month']!,
+          _skippedMonthMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5478,6 +5499,10 @@ class $ObligationsTable extends Obligations
         DriftSqlType.string,
         data['${effectivePrefix}loan_account_id'],
       ),
+      skippedMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}skipped_month'],
+      ),
     );
   }
 
@@ -5502,6 +5527,10 @@ class ObligationEntity extends DataClass
 
   /// Кредит, остаток долга которого уменьшается при оплате.
   final String? loanAccountId;
+
+  /// Месяц (первое число), за который платёж пропущен в режиме
+  /// администратора: без операции и без списания со счёта.
+  final DateTime? skippedMonth;
   const ObligationEntity({
     required this.id,
     required this.createdAt,
@@ -5512,6 +5541,7 @@ class ObligationEntity extends DataClass
     required this.dueDay,
     this.categoryId,
     this.loanAccountId,
+    this.skippedMonth,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5530,6 +5560,9 @@ class ObligationEntity extends DataClass
     }
     if (!nullToAbsent || loanAccountId != null) {
       map['loan_account_id'] = Variable<String>(loanAccountId);
+    }
+    if (!nullToAbsent || skippedMonth != null) {
+      map['skipped_month'] = Variable<DateTime>(skippedMonth);
     }
     return map;
   }
@@ -5551,6 +5584,9 @@ class ObligationEntity extends DataClass
       loanAccountId: loanAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(loanAccountId),
+      skippedMonth: skippedMonth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(skippedMonth),
     );
   }
 
@@ -5569,6 +5605,7 @@ class ObligationEntity extends DataClass
       dueDay: serializer.fromJson<int>(json['dueDay']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       loanAccountId: serializer.fromJson<String?>(json['loanAccountId']),
+      skippedMonth: serializer.fromJson<DateTime?>(json['skippedMonth']),
     );
   }
   @override
@@ -5584,6 +5621,7 @@ class ObligationEntity extends DataClass
       'dueDay': serializer.toJson<int>(dueDay),
       'categoryId': serializer.toJson<String?>(categoryId),
       'loanAccountId': serializer.toJson<String?>(loanAccountId),
+      'skippedMonth': serializer.toJson<DateTime?>(skippedMonth),
     };
   }
 
@@ -5597,6 +5635,7 @@ class ObligationEntity extends DataClass
     int? dueDay,
     Value<String?> categoryId = const Value.absent(),
     Value<String?> loanAccountId = const Value.absent(),
+    Value<DateTime?> skippedMonth = const Value.absent(),
   }) => ObligationEntity(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -5609,6 +5648,7 @@ class ObligationEntity extends DataClass
     loanAccountId: loanAccountId.present
         ? loanAccountId.value
         : this.loanAccountId,
+    skippedMonth: skippedMonth.present ? skippedMonth.value : this.skippedMonth,
   );
   ObligationEntity copyWithCompanion(ObligationsCompanion data) {
     return ObligationEntity(
@@ -5625,6 +5665,9 @@ class ObligationEntity extends DataClass
       loanAccountId: data.loanAccountId.present
           ? data.loanAccountId.value
           : this.loanAccountId,
+      skippedMonth: data.skippedMonth.present
+          ? data.skippedMonth.value
+          : this.skippedMonth,
     );
   }
 
@@ -5639,7 +5682,8 @@ class ObligationEntity extends DataClass
           ..write('amount: $amount, ')
           ..write('dueDay: $dueDay, ')
           ..write('categoryId: $categoryId, ')
-          ..write('loanAccountId: $loanAccountId')
+          ..write('loanAccountId: $loanAccountId, ')
+          ..write('skippedMonth: $skippedMonth')
           ..write(')'))
         .toString();
   }
@@ -5655,6 +5699,7 @@ class ObligationEntity extends DataClass
     dueDay,
     categoryId,
     loanAccountId,
+    skippedMonth,
   );
   @override
   bool operator ==(Object other) =>
@@ -5668,7 +5713,8 @@ class ObligationEntity extends DataClass
           other.amount == this.amount &&
           other.dueDay == this.dueDay &&
           other.categoryId == this.categoryId &&
-          other.loanAccountId == this.loanAccountId);
+          other.loanAccountId == this.loanAccountId &&
+          other.skippedMonth == this.skippedMonth);
 }
 
 class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
@@ -5681,6 +5727,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
   final Value<int> dueDay;
   final Value<String?> categoryId;
   final Value<String?> loanAccountId;
+  final Value<DateTime?> skippedMonth;
   final Value<int> rowid;
   const ObligationsCompanion({
     this.id = const Value.absent(),
@@ -5692,6 +5739,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     this.dueDay = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.loanAccountId = const Value.absent(),
+    this.skippedMonth = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ObligationsCompanion.insert({
@@ -5704,6 +5752,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     this.dueDay = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.loanAccountId = const Value.absent(),
+    this.skippedMonth = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -5720,6 +5769,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     Expression<int>? dueDay,
     Expression<String>? categoryId,
     Expression<String>? loanAccountId,
+    Expression<DateTime>? skippedMonth,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5732,6 +5782,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
       if (dueDay != null) 'due_day': dueDay,
       if (categoryId != null) 'category_id': categoryId,
       if (loanAccountId != null) 'loan_account_id': loanAccountId,
+      if (skippedMonth != null) 'skipped_month': skippedMonth,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5746,6 +5797,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     Value<int>? dueDay,
     Value<String?>? categoryId,
     Value<String?>? loanAccountId,
+    Value<DateTime?>? skippedMonth,
     Value<int>? rowid,
   }) {
     return ObligationsCompanion(
@@ -5758,6 +5810,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
       dueDay: dueDay ?? this.dueDay,
       categoryId: categoryId ?? this.categoryId,
       loanAccountId: loanAccountId ?? this.loanAccountId,
+      skippedMonth: skippedMonth ?? this.skippedMonth,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5792,6 +5845,9 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
     if (loanAccountId.present) {
       map['loan_account_id'] = Variable<String>(loanAccountId.value);
     }
+    if (skippedMonth.present) {
+      map['skipped_month'] = Variable<DateTime>(skippedMonth.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5810,6 +5866,7 @@ class ObligationsCompanion extends UpdateCompanion<ObligationEntity> {
           ..write('dueDay: $dueDay, ')
           ..write('categoryId: $categoryId, ')
           ..write('loanAccountId: $loanAccountId, ')
+          ..write('skippedMonth: $skippedMonth, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12306,6 +12363,7 @@ typedef $$ObligationsTableCreateCompanionBuilder =
       Value<int> dueDay,
       Value<String?> categoryId,
       Value<String?> loanAccountId,
+      Value<DateTime?> skippedMonth,
       Value<int> rowid,
     });
 typedef $$ObligationsTableUpdateCompanionBuilder =
@@ -12319,6 +12377,7 @@ typedef $$ObligationsTableUpdateCompanionBuilder =
       Value<int> dueDay,
       Value<String?> categoryId,
       Value<String?> loanAccountId,
+      Value<DateTime?> skippedMonth,
       Value<int> rowid,
     });
 
@@ -12428,6 +12487,11 @@ class $$ObligationsTableFilterComposer
 
   ColumnFilters<int> get dueDay => $composableBuilder(
     column: $table.dueDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get skippedMonth => $composableBuilder(
+    column: $table.skippedMonth,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12547,6 +12611,11 @@ class $$ObligationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get skippedMonth => $composableBuilder(
+    column: $table.skippedMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$FinanceCategoriesTableOrderingComposer get categoryId {
     final $$FinanceCategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12623,6 +12692,11 @@ class $$ObligationsTableAnnotationComposer
 
   GeneratedColumn<int> get dueDay =>
       $composableBuilder(column: $table.dueDay, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get skippedMonth => $composableBuilder(
+    column: $table.skippedMonth,
+    builder: (column) => column,
+  );
 
   $$FinanceCategoriesTableAnnotationComposer get categoryId {
     final $$FinanceCategoriesTableAnnotationComposer composer =
@@ -12739,6 +12813,7 @@ class $$ObligationsTableTableManager
                 Value<int> dueDay = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> loanAccountId = const Value.absent(),
+                Value<DateTime?> skippedMonth = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ObligationsCompanion(
                 id: id,
@@ -12750,6 +12825,7 @@ class $$ObligationsTableTableManager
                 dueDay: dueDay,
                 categoryId: categoryId,
                 loanAccountId: loanAccountId,
+                skippedMonth: skippedMonth,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12763,6 +12839,7 @@ class $$ObligationsTableTableManager
                 Value<int> dueDay = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> loanAccountId = const Value.absent(),
+                Value<DateTime?> skippedMonth = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ObligationsCompanion.insert(
                 id: id,
@@ -12774,6 +12851,7 @@ class $$ObligationsTableTableManager
                 dueDay: dueDay,
                 categoryId: categoryId,
                 loanAccountId: loanAccountId,
+                skippedMonth: skippedMonth,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
