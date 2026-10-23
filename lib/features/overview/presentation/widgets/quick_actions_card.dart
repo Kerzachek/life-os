@@ -5,6 +5,7 @@ import '../../../../core/widgets/responsive.dart';
 import '../../../finance/presentation/widgets/transaction_dialog.dart';
 import '../../../habits/presentation/widgets/add_challenge_dialog.dart';
 import '../../../habits/presentation/widgets/add_habit_dialog.dart';
+import '../../../notes/presentation/widgets/note_editor.dart';
 import '../../../routine/presentation/widgets/routine_item_dialog.dart';
 import '../../../settings/domain/app_module.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
@@ -14,9 +15,13 @@ class _QuickAction {
   final AppModule module;
   final IconData icon;
   final String label;
-  final WidgetBuilder dialogBuilder;
+  final void Function(BuildContext context) open;
 
-  const _QuickAction(this.module, this.icon, this.label, this.dialogBuilder);
+  const _QuickAction(this.module, this.icon, this.label, this.open);
+
+  /// Действие, открывающее форму через [showFormSheet].
+  _QuickAction.form(this.module, this.icon, this.label, WidgetBuilder builder)
+      : open = ((context) => showFormSheet(context: context, builder: builder));
 }
 
 /// Быстрые действия. Кнопки отключённых разделов скрываются; если не осталось
@@ -25,16 +30,18 @@ class QuickActionsCard extends ConsumerWidget {
   const QuickActionsCard({super.key});
 
   static final List<_QuickAction> _actions = [
-    _QuickAction(AppModule.tasks, Icons.add_task, '+ Задача',
+    _QuickAction.form(AppModule.tasks, Icons.add_task, '+ Задача',
         (_) => const AddTaskDialog()),
-    _QuickAction(AppModule.habits, Icons.local_fire_department, '+ Привычка',
+    _QuickAction.form(AppModule.habits, Icons.local_fire_department, '+ Привычка',
         (_) => const AddHabitDialog()),
-    _QuickAction(AppModule.habits, Icons.emoji_events, '+ Челлендж',
+    _QuickAction.form(AppModule.habits, Icons.emoji_events, '+ Челлендж',
         (_) => const AddChallengeDialog()),
-    _QuickAction(AppModule.finance, Icons.receipt_long, '+ Операция',
+    _QuickAction.form(AppModule.finance, Icons.receipt_long, '+ Операция',
         (_) => const TransactionDialog()),
-    _QuickAction(AppModule.routine, Icons.wb_sunny_outlined, '+ Рутина',
+    _QuickAction.form(AppModule.routine, Icons.wb_sunny_outlined, '+ Рутина',
         (_) => const RoutineItemDialog()),
+    _QuickAction(AppModule.notes, Icons.sticky_note_2_outlined, '+ Заметка',
+        (context) => openNoteEditor(context)),
   ];
 
   @override
@@ -81,9 +88,7 @@ class QuickActionsCard extends ConsumerWidget {
                 ActionChip(
                   avatar: Icon(action.icon, size: 16),
                   label: Text(action.label),
-                  onPressed: () {
-                    showFormSheet(context: context, builder: action.dialogBuilder);
-                  },
+                  onPressed: () => action.open(context),
                 ),
             ],
           ),

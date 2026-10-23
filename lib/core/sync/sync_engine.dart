@@ -120,6 +120,12 @@ class SyncEngine {
       table: _db.routineDailyLogs,
       fromJson: RoutineDailyLogEntity.fromJson,
     ),
+    DriftSyncTable(
+      name: 'notes',
+      db: _db,
+      table: _db.notes,
+      fromJson: NoteEntity.fromJson,
+    ),
   ];
 
   /// Имена синхронизируемых таблиц.

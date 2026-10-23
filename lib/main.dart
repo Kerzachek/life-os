@@ -13,6 +13,7 @@ import 'core/widgets/app_sidebar.dart';
 import 'core/widgets/responsive.dart';
 import 'features/finance/presentation/screens/finance_screen.dart';
 import 'features/habits/presentation/screens/habits_screen.dart';
+import 'features/notes/presentation/screens/notes_screen.dart';
 import 'features/overview/presentation/screens/overview_screen.dart';
 import 'features/routine/presentation/screens/routine_screen.dart';
 import 'features/settings/domain/app_module.dart';
@@ -96,6 +97,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         return const FinanceScreen();
       case 4:
         return const RoutineScreen();
+      case 5:
+        return const NotesScreen();
       default:
         return const SettingsScreen();
     }
@@ -122,12 +125,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       });
     }
 
-    final screens = IndexedStack(
-      index: effectiveIndex,
-      children: [
-        for (var i = 0; i < AppSidebar.screenCount; i++)
-          isVisible(i) ? _buildScreen(i) : const SizedBox.shrink(),
-      ],
+    // Все разделы живут в одном маршруте, и их FAB-кнопки делят hero-тег
+    // по умолчанию: без HeroMode переход на полноэкранную страницу
+    // (редактор заметки на телефоне) падает на дубликате тега.
+    final screens = HeroMode(
+      enabled: false,
+      child: IndexedStack(
+        index: effectiveIndex,
+        children: [
+          for (var i = 0; i < AppSidebar.screenCount; i++)
+            isVisible(i) ? _buildScreen(i) : const SizedBox.shrink(),
+        ],
+      ),
     );
 
     final items = AppSidebar.visibleNavItems(enabledModules);

@@ -29,6 +29,13 @@ enum AppModule {
     title: 'Рутина',
     description: 'Базовые ежедневные действия и чек-лист дня с автосбросом',
     icon: Icons.wb_sunny_outlined,
+  ),
+  notes(
+    storageKey: 'module_notes_enabled',
+    navIndex: 5,
+    title: 'Заметки',
+    description: 'Заметки с чек-листами, закреплением и цветовыми метками',
+    icon: Icons.sticky_note_2_outlined,
   );
 
   const AppModule({

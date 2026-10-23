@@ -16,6 +16,7 @@ import 'tables/finance_categories_table.dart';
 import 'tables/finance_transactions_table.dart';
 import 'tables/habit_logs_table.dart';
 import 'tables/habits_table.dart';
+import 'tables/notes_table.dart';
 import 'tables/obligations_table.dart';
 import 'tables/routine_daily_logs_table.dart';
 import 'tables/routine_items_table.dart';
@@ -37,13 +38,14 @@ part 'app_database.g.dart';
   Obligations,
   RoutineItems,
   RoutineDailyLogs,
+  Notes,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -94,6 +96,9 @@ class AppDatabase extends _$AppDatabase {
             financeAccounts.nextPaymentDate,
             financeAccounts.nextPaymentAmount,
           ]);
+        }
+        if (from < 8) {
+          await m.createTable(notes);
         }
       },
     );

@@ -8,6 +8,12 @@ const double mobileBreakpoint = 600;
 /// панель съела бы слишком много места, навигация уходит в узкую ленту слева.
 const double compactLandscapeMaxHeight = 500;
 
+/// Предельная ширина редакторов и форм на десктопе.
+const double maxEditorWidth = 800;
+
+/// Ширина формы, у которой поля не задают её сами.
+const double formDialogWidth = 420;
+
 bool isMobileLayout(BuildContext context) =>
     MediaQuery.sizeOf(context).width < mobileBreakpoint;
 
@@ -99,7 +105,17 @@ class AdaptiveFormDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!_FormSheetScope.of(context)) {
-      return AlertDialog(title: title, content: content, actions: actions);
+      // AlertDialog подбирает ширину по IntrinsicWidth, а собственная ширина
+      // поля ввода — ширина набранного текста: без потолка диалог растёт
+      // при вводе, пока не упрётся в края окна.
+      return AlertDialog(
+        title: title,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: maxEditorWidth),
+          child: content,
+        ),
+        actions: actions,
+      );
     }
     final theme = Theme.of(context);
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;

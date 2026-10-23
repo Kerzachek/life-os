@@ -29,7 +29,9 @@ class _AddChallengeDialogState extends ConsumerState<AddChallengeDialog> {
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      ref.read(habitsControllerProvider).createChallenge(
+      ref
+          .read(habitsControllerProvider)
+          .createChallenge(
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim().isEmpty
                 ? null
@@ -47,82 +49,91 @@ class _AddChallengeDialogState extends ConsumerState<AddChallengeDialog> {
 
     return AdaptiveFormDialog(
       title: const Text('Новый челлендж'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Название челленджа *',
-                  hintText: '30 дней без сахара, Марафон чтения...',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Введите название челленджа';
-                  }
-                  return null;
-                },
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Правила и цель',
-                  hintText: 'Каждый день читать по 20 страниц...',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: Text('Старт: ${dateFormat.format(_startDate)}'),
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _startDate,
-                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (date != null) {
-                          setState(() => _startDate = date);
-                        }
-                      },
-                    ),
+      content: SizedBox(
+        width: formDialogWidth,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Название челленджа *',
+                    hintText: '30 дней без сахара, Марафон чтения...',
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.flag, size: 18),
-                      label: Text('Финиш: ${dateFormat.format(_endDate)}'),
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _endDate,
-                          firstDate: _startDate,
-                          lastDate: _startDate.add(const Duration(days: 365)),
-                        );
-                        if (date != null) {
-                          setState(() => _endDate = date);
-                        }
-                      },
-                    ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Введите название челленджа';
+                    }
+                    return null;
+                  },
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Правила и цель',
+                    hintText: 'Каждый день читать по 20 страниц...',
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
-            ],
+                  minLines: 2,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: Text('Старт: ${dateFormat.format(_startDate)}'),
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _startDate,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 30),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (date != null) {
+                            setState(() => _startDate = date);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.flag, size: 18),
+                        label: Text('Финиш: ${dateFormat.format(_endDate)}'),
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _endDate,
+                            firstDate: _startDate,
+                            lastDate: _startDate.add(const Duration(days: 365)),
+                          );
+                          if (date != null) {
+                            setState(() => _endDate = date);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -131,10 +142,7 @@ class _AddChallengeDialogState extends ConsumerState<AddChallengeDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Отмена'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Запустить'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Запустить')),
       ],
     );
   }

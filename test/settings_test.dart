@@ -94,7 +94,7 @@ void main() {
         of: find.byType(ModuleToggleTile),
         matching: find.byType(Switch),
       );
-      expect(switches, findsNWidgets(4));
+      expect(switches, findsNWidgets(5));
       await tester.tap(switches.at(index));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Дашборд'));
@@ -124,18 +124,22 @@ void main() {
     expect(find.text('Рутина'), findsWidgets);
 
     // Рутина выключена: нет пункта меню, кнопки, карточки и бара.
-    // Все разделы выключены: пустое состояние с переходом в Настройки.
     await toggle(3);
     expect(find.text('Рутина'), findsNothing);
     expect(find.text('+ Рутина'), findsNothing);
     expect(find.text(RoutineOverviewCard.title), findsNothing);
     expect(find.text('Прогресс и Продуктивность'), findsNothing);
+    expect(find.text('+ Заметка'), findsOneWidget);
+
+    // Все разделы выключены: пустое состояние с переходом в Настройки.
+    await toggle(4);
+    expect(find.text('Заметки'), findsNothing);
     expect(find.text(DashboardEmptyState.title), findsOneWidget);
     expect(find.text('Быстрые действия'), findsNothing);
 
     await tester.tap(find.text('Открыть Настройки'));
     await tester.pumpAndSettle();
-    expect(find.byType(ModuleToggleTile), findsNWidgets(4));
+    expect(find.byType(ModuleToggleTile), findsNWidgets(5));
     expect(find.text('Система и фоновый режим'), findsOneWidget);
     expect(find.text('Работа в фоне'), findsOneWidget);
     expect(find.text('Автозапуск с Windows'), findsOneWidget);

@@ -34,7 +34,9 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
     if (_formKey.currentState?.validate() ?? false) {
       final targetVal = int.tryParse(_targetValueController.text.trim()) ?? 1;
 
-      ref.read(habitsControllerProvider).createHabit(
+      ref
+          .read(habitsControllerProvider)
+          .createHabit(
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim().isEmpty
                 ? null
@@ -53,87 +55,89 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
   Widget build(BuildContext context) {
     return AdaptiveFormDialog(
       title: const Text('Новая привычка'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Название привычки *',
-                  hintText: 'Зарядка, Пить воду, Чтение...',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Введите название привычки';
-                  }
-                  return null;
-                },
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Заметки / Описание',
-                  hintText: 'Почему это важно, детали...',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _targetValueController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Цель в день *',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (val) {
-                        if (val == null || int.tryParse(val) == null) {
-                          return 'Число';
-                        }
-                        return null;
-                      },
-                    ),
+      content: SizedBox(
+        width: formDialogWidth,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Название привычки *',
+                    hintText: 'Зарядка, Пить воду, Чтение...',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _unitController,
-                      decoration: const InputDecoration(
-                        labelText: 'Ед. изм.',
-                        hintText: 'раз, мин, мл',
-                        border: OutlineInputBorder(),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Введите название привычки';
+                    }
+                    return null;
+                  },
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Заметки / Описание',
+                    hintText: 'Почему это важно, детали...',
+                    border: OutlineInputBorder(),
+                  ),
+                  minLines: 2,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _targetValueController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Цель в день *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) {
+                          if (val == null || int.tryParse(val) == null) {
+                            return 'Число';
+                          }
+                          return null;
+                        },
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<HabitFrequencyType>(
-                initialValue: _frequencyType,
-                decoration: const InputDecoration(
-                  labelText: 'Регулярность',
-                  border: OutlineInputBorder(),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _unitController,
+                        decoration: const InputDecoration(
+                          labelText: 'Ед. изм.',
+                          hintText: 'раз, мин, мл',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                items: HabitFrequencyType.values.map((f) {
-                  return DropdownMenuItem(
-                    value: f,
-                    child: Text(f.label),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _frequencyType = val);
-                },
-              ),
-            ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<HabitFrequencyType>(
+                  initialValue: _frequencyType,
+                  decoration: const InputDecoration(
+                    labelText: 'Регулярность',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: HabitFrequencyType.values.map((f) {
+                    return DropdownMenuItem(value: f, child: Text(f.label));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _frequencyType = val);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -142,10 +146,7 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Отмена'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Создать'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Создать')),
       ],
     );
   }

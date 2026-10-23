@@ -39,12 +39,14 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
     super.initState();
     final task = widget.taskToEdit;
     _titleController = TextEditingController(text: task?.title ?? '');
-    _descriptionController =
-        TextEditingController(text: task?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: task?.description ?? '',
+    );
     _dueDate = task?.dueDate;
     _reminderAt = task?.reminderAt;
-    _priority =
-        task != null ? TaskPriority.fromValue(task.priority) : TaskPriority.medium;
+    _priority = task != null
+        ? TaskPriority.fromValue(task.priority)
+        : TaskPriority.medium;
     _category = TaskCategory.fromId(task?.categoryId);
   }
 
@@ -134,111 +136,118 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
   Widget build(BuildContext context) {
     return AdaptiveFormDialog(
       title: Text(_isEditing ? 'Редактировать задачу' : 'Новая задача'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Название *',
-                  hintText: 'Что нужно сделать?',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Введите название задачи';
-                  }
-                  return null;
-                },
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Описание',
-                  hintText: 'Заметки, подробности...',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<TaskPriority>(
-                initialValue: _priority,
-                decoration: const InputDecoration(
-                  labelText: 'Приоритет',
-                  border: OutlineInputBorder(),
-                ),
-                items: TaskPriority.values.map((p) {
-                  return DropdownMenuItem(
-                    value: p,
-                    child: Row(
-                      children: [
-                        Icon(Icons.circle, size: 12, color: p.color),
-                        const SizedBox(width: 8),
-                        Text(p.label),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _priority = val);
-                },
-              ),
-              const SizedBox(height: 12),
-              CategoryDropdownField(
-                value: _category,
-                onChanged: (val) => setState(() => _category = val),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.calendar_today, size: 18),
-                      label: Text(
-                        _dueDate == null
-                            ? 'Срок выполнения'
-                            : DateFormat('dd.MM.yyyy').format(_dueDate!),
-                      ),
-                      onPressed: () async {
-                        final now = DateTime.now();
-                        var firstDate = now.subtract(const Duration(days: 1));
-                        var lastDate = now.add(const Duration(days: 365 * 5));
-                        // Существующий срок может выходить за обычные границы.
-                        final current = _dueDate;
-                        if (current != null) {
-                          if (current.isBefore(firstDate)) firstDate = current;
-                          if (current.isAfter(lastDate)) lastDate = current;
-                        }
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: current ?? now,
-                          firstDate: firstDate,
-                          lastDate: lastDate,
-                        );
-                        if (date != null) _setDueDate(date);
-                      },
-                    ),
+      content: SizedBox(
+        width: formDialogWidth,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Название *',
+                    hintText: 'Что нужно сделать?',
+                    border: OutlineInputBorder(),
                   ),
-                  if (_dueDate != null)
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => _setDueDate(null),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Введите название задачи';
+                    }
+                    return null;
+                  },
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Описание',
+                    hintText: 'Заметки, подробности...',
+                    border: OutlineInputBorder(),
+                  ),
+                  minLines: 2,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<TaskPriority>(
+                  initialValue: _priority,
+                  decoration: const InputDecoration(
+                    labelText: 'Приоритет',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: TaskPriority.values.map((p) {
+                    return DropdownMenuItem(
+                      value: p,
+                      child: Row(
+                        children: [
+                          Icon(Icons.circle, size: 12, color: p.color),
+                          const SizedBox(width: 8),
+                          Text(p.label),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _priority = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                CategoryDropdownField(
+                  value: _category,
+                  onChanged: (val) => setState(() => _category = val),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.calendar_today, size: 18),
+                        label: Text(
+                          _dueDate == null
+                              ? 'Срок выполнения'
+                              : DateFormat('dd.MM.yyyy').format(_dueDate!),
+                        ),
+                        onPressed: () async {
+                          final now = DateTime.now();
+                          var firstDate = now.subtract(const Duration(days: 1));
+                          var lastDate = now.add(const Duration(days: 365 * 5));
+                          // Существующий срок может выходить за обычные границы.
+                          final current = _dueDate;
+                          if (current != null) {
+                            if (current.isBefore(firstDate)) {
+                              firstDate = current;
+                            }
+                            if (current.isAfter(lastDate)) lastDate = current;
+                          }
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: current ?? now,
+                            firstDate: firstDate,
+                            lastDate: lastDate,
+                          );
+                          if (date != null) _setDueDate(date);
+                        },
+                      ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ReminderField(
-                dueDate: _dueDate,
-                reminderAt: _reminderAt,
-                onChanged: (val) => setState(() => _reminderAt = val),
-              ),
-            ],
+                    if (_dueDate != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => _setDueDate(null),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ReminderField(
+                  dueDate: _dueDate,
+                  reminderAt: _reminderAt,
+                  onChanged: (val) => setState(() => _reminderAt = val),
+                ),
+              ],
+            ),
           ),
         ),
       ),

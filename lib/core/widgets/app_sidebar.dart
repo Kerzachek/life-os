@@ -32,10 +32,10 @@ class AppSidebar extends ConsumerWidget {
   });
 
   static const int dashboardIndex = 0;
-  static const int settingsIndex = 5;
+  static const int settingsIndex = 6;
 
   /// Количество экранов в IndexedStack.
-  static const int screenCount = 6;
+  static const int screenCount = 7;
 
   static const List<NavigationItemData> navItems = [
     NavigationItemData(index: dashboardIndex, label: 'Дашборд', icon: Icons.grid_view_rounded),
@@ -43,6 +43,7 @@ class AppSidebar extends ConsumerWidget {
     NavigationItemData(index: 1, label: 'Задачи', icon: Icons.task_alt_rounded, module: AppModule.tasks),
     NavigationItemData(index: 2, label: 'Привычки', icon: Icons.local_fire_department_rounded, module: AppModule.habits),
     NavigationItemData(index: 3, label: 'Финансы', icon: Icons.account_balance_wallet_rounded, module: AppModule.finance),
+    NavigationItemData(index: 5, label: 'Заметки', icon: Icons.sticky_note_2_outlined, module: AppModule.notes),
     NavigationItemData(index: settingsIndex, label: 'Настройки', icon: Icons.settings_rounded),
   ];
 
