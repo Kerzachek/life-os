@@ -24,11 +24,13 @@ class TaskItemWidget extends ConsumerWidget {
     final theme = Theme.of(context);
     final isCompleted = task.status == TaskStatus.completed.value;
     final priority = TaskPriority.fromValue(task.priority);
-    final category =
-        task.categoryId == null ? null : TaskCategory.fromId(task.categoryId);
+    final category = task.categoryId == null
+        ? null
+        : TaskCategory.fromId(task.categoryId);
 
     final now = DateTime.now();
-    final isOverdue = !isCompleted &&
+    final isOverdue =
+        !isCompleted &&
         task.dueDate != null &&
         task.dueDate!.isBefore(DateTime(now.year, now.month, now.day));
 
@@ -46,103 +48,103 @@ class TaskItemWidget extends ConsumerWidget {
       color: isCompleted
           ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
           : theme.colorScheme.surface,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => ref.read(tasksControllerProvider).toggleTaskStatus(task),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Checkbox(
-                value: isCompleted,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                onChanged: (_) =>
-                    ref.read(tasksControllerProvider).toggleTaskStatus(task),
+      // Статус меняется только через чекбокс, тап по телу карточки ничего не делает.
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: isCompleted,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              decoration:
-                                  isCompleted ? TextDecoration.lineThrough : null,
-                              color: isCompleted
-                                  ? theme.colorScheme.onSurfaceVariant
-                                  : theme.colorScheme.onSurface,
-                            ),
+              onChanged: (_) =>
+                  ref.read(tasksControllerProvider).toggleTaskStatus(task),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          task.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            decoration: isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: isCompleted
+                                ? theme.colorScheme.onSurfaceVariant
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
-                      ],
-                    ),
-                    if (task.description?.isNotEmpty == true) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        task.description!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          decoration:
-                              isCompleted ? TextDecoration.lineThrough : null,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        PriorityBadge(priority: priority),
-                        // Задачи без категории — без бейджа, чтобы не шуметь.
-                        if (category != null)
-                          CategoryBadge(
-                            key: ValueKey('task-category-${task.id}'),
-                            category: category,
-                          ),
-                        if (task.dueDate != null)
-                          DueDateBadge(
-                            dueDate: task.dueDate!,
-                            isOverdue: isOverdue,
-                          ),
-                        if (task.reminderAt != null)
-                          ReminderBadge(
-                            key: ValueKey('task-reminder-${task.id}'),
-                            reminderAt: task.reminderAt!,
-                            isActive: isReminderPending(task) &&
-                                task.reminderAt!.isAfter(now),
-                          ),
-                      ],
+                  ),
+                  if (task.description?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      task.description!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      PriorityBadge(priority: priority),
+                      // Задачи без категории — без бейджа, чтобы не шуметь.
+                      if (category != null)
+                        CategoryBadge(
+                          key: ValueKey('task-category-${task.id}'),
+                          category: category,
+                        ),
+                      if (task.dueDate != null)
+                        DueDateBadge(
+                          dueDate: task.dueDate!,
+                          isOverdue: isOverdue,
+                        ),
+                      if (task.reminderAt != null)
+                        ReminderBadge(
+                          key: ValueKey('task-reminder-${task.id}'),
+                          reminderAt: task.reminderAt!,
+                          isActive:
+                              isReminderPending(task) &&
+                              task.reminderAt!.isAfter(now),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-              IconButton(
-                key: ValueKey('task-edit-${task.id}'),
-                tooltip: 'Редактировать',
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                color: theme.colorScheme.onSurfaceVariant,
-                onPressed: () => showFormSheet(
-                  context: context,
-                  builder: (_) => AddTaskDialog(taskToEdit: task),
-                ),
+            ),
+            IconButton(
+              key: ValueKey('task-edit-${task.id}'),
+              tooltip: 'Редактировать',
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              color: theme.colorScheme.onSurfaceVariant,
+              onPressed: () => showFormSheet(
+                context: context,
+                builder: (_) => AddTaskDialog(taskToEdit: task),
               ),
-              IconButton(
-                tooltip: 'Удалить',
-                icon: const Icon(Icons.delete_outline, size: 20),
-                color: theme.colorScheme.onSurfaceVariant,
-                onPressed: () => _confirmDelete(context, ref),
-              ),
-            ],
-          ),
+            ),
+            IconButton(
+              tooltip: 'Удалить',
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: theme.colorScheme.onSurfaceVariant,
+              onPressed: () => _confirmDelete(context, ref),
+            ),
+          ],
         ),
       ),
     );
