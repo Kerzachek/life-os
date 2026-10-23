@@ -6,6 +6,9 @@ import 'dart:io';
 bool get isDesktopPlatform =>
     Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
+/// macOS: сочетания клавиш — через Cmd, а не Ctrl.
+bool get isMacOSPlatform => Platform.isMacOS;
+
 /// Название ОС для подписей в настройках.
 String get platformDisplayName {
   if (Platform.isMacOS) return 'macOS';

@@ -16,6 +16,7 @@ import 'features/finance/presentation/screens/finance_screen.dart';
 import 'features/habits/presentation/screens/habits_screen.dart';
 import 'features/notes/presentation/screens/notes_screen.dart';
 import 'features/overview/presentation/screens/overview_screen.dart';
+import 'features/quick_actions/presentation/widgets/quick_actions_overlay.dart';
 import 'features/routine/presentation/screens/routine_screen.dart';
 import 'features/settings/domain/app_module.dart';
 import 'features/settings/presentation/providers/settings_provider.dart';
@@ -136,15 +137,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Все разделы живут в одном маршруте, и их FAB-кнопки делят hero-тег
     // по умолчанию: без HeroMode переход на полноэкранную страницу
     // (редактор заметки на телефоне) падает на дубликате тега.
-    final screens = HeroMode(
-      enabled: false,
-      child: IndexedStack(
-        index: effectiveIndex,
-        children: [
-          for (var i = 0; i < AppSidebar.screenCount; i++)
-            isVisible(i) ? _buildScreen(i) : const SizedBox.shrink(),
-        ],
-      ),
+    // Плавающая кнопка быстрых действий — поверх области разделов (не меню):
+    // отступы навигации, выреза и клавиатуры уже сняты SafeArea и Scaffold.
+    final screens = Stack(
+      fit: StackFit.expand,
+      children: [
+        HeroMode(
+          enabled: false,
+          child: IndexedStack(
+            index: effectiveIndex,
+            children: [
+              for (var i = 0; i < AppSidebar.screenCount; i++)
+                isVisible(i) ? _buildScreen(i) : const SizedBox.shrink(),
+            ],
+          ),
+        ),
+        if (ref.watch(showQuickActionsWidgetProvider))
+          const QuickActionsOverlay(),
+      ],
     );
 
     final items = AppSidebar.visibleNavItems(enabledModules);

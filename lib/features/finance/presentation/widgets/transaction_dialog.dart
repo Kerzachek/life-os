@@ -10,10 +10,21 @@ import '../providers/finance_provider.dart';
 import 'finance_format.dart';
 
 /// Форма добавления / редактирования операции.
+///
+/// [quick] — компактная форма из меню быстрых действий: тип операции
+/// зафиксирован ([initialType]), дата — сейчас, без погашения кредита
+/// у расхода.
 class TransactionDialog extends ConsumerStatefulWidget {
-  const TransactionDialog({super.key, this.transaction});
+  const TransactionDialog({
+    super.key,
+    this.transaction,
+    this.initialType = FinanceTransactionType.expense,
+    this.quick = false,
+  });
 
   final FinanceTransactionEntity? transaction;
+  final FinanceTransactionType initialType;
+  final bool quick;
 
   @override
   ConsumerState<TransactionDialog> createState() => _TransactionDialogState();
@@ -37,7 +48,7 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
     super.initState();
     final t = widget.transaction;
     _type = t == null
-        ? FinanceTransactionType.expense
+        ? widget.initialType
         : FinanceTransactionType.fromValue(t.type);
     _date = t?.date.toLocal() ?? DateTime.now();
     _amount = TextEditingController(text: t == null ? '' : '${t.amount}');
@@ -130,6 +141,7 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
         all.where((a) => a.kind != FinanceAccountKind.loan.value).toList();
     final isIncome = _type == FinanceTransactionType.income;
     final isTransfer = _type == FinanceTransactionType.transfer;
+    final quick = widget.quick && !_isEdit;
 
     // Целевой продукт: для расхода — только кредит (погашение), для перевода —
     // любой продукт кроме источника (перевод на кредитку — её погашение).
@@ -149,7 +161,11 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
     final categoryValue = valid(_categoryId, categories.map((c) => c.id));
 
     return AdaptiveFormDialog(
-      title: Text(_isEdit ? 'Редактировать операцию' : 'Новая операция'),
+      title: Text(_isEdit
+          ? 'Редактировать операцию'
+          : quick
+              ? _quickTitle
+              : 'Новая операция'),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -158,12 +174,15 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _typeSelector(),
-                const SizedBox(height: 12),
+                if (!quick) ...[
+                  _typeSelector(),
+                  const SizedBox(height: 12),
+                ],
                 _amountField(),
                 const SizedBox(height: 12),
                 _accountField(sources, isIncome),
-                if (!isIncome && (isTransfer || targets.isNotEmpty)) ...[
+                if (isTransfer ||
+                    (!quick && !isIncome && targets.isNotEmpty)) ...[
                   const SizedBox(height: 12),
                   _targetField(targets, targetValue, isTransfer),
                 ],
@@ -171,14 +190,16 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
                   const SizedBox(height: 12),
                   _categoryField(categories, categoryValue),
                 ],
-                const SizedBox(height: 12),
-                _dateField(),
+                if (!quick) ...[
+                  const SizedBox(height: 12),
+                  _dateField(),
+                ],
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const ValueKey('tx_note'),
                   controller: _note,
-                  decoration: const InputDecoration(
-                    labelText: 'Заметка',
+                  decoration: InputDecoration(
+                    labelText: quick ? 'Комментарий' : 'Заметка',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -207,6 +228,12 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
       ],
     );
   }
+
+  String get _quickTitle => switch (_type) {
+        FinanceTransactionType.expense => 'Расход',
+        FinanceTransactionType.income => 'Пополнение',
+        FinanceTransactionType.transfer => 'Перевод',
+      };
 
   Widget _typeSelector() {
     return SegmentedButton<FinanceTransactionType>(
