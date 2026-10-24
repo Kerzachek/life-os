@@ -5,18 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:home_organizer/core/database/app_database.dart';
 import 'package:home_organizer/core/database/database_provider.dart';
+import 'package:home_organizer/core/services/system_overlay_service.dart';
 import 'package:home_organizer/features/finance/data/repositories/finance_repository.dart';
 import 'package:home_organizer/features/finance/domain/finance_enums.dart';
 import 'package:home_organizer/features/notes/domain/note.dart';
-import 'package:home_organizer/features/quick_actions/presentation/widgets/quick_actions_overlay.dart';
+import 'package:home_organizer/features/quick_actions/presentation/providers/system_overlay_provider.dart';
 import 'package:home_organizer/features/routine/data/repositories/routine_repository.dart';
 import 'package:home_organizer/features/routine/domain/routine_day.dart';
 import 'package:home_organizer/features/settings/data/repositories/settings_repository.dart';
-import 'package:home_organizer/features/settings/domain/app_module.dart';
 import 'package:home_organizer/features/settings/presentation/providers/settings_provider.dart';
 import 'package:home_organizer/main.dart';
 
-const _button = ValueKey('quick_actions_button');
+const _channel = SystemOverlayService.defaultChannel;
 
 Future<void> _withApp(
   WidgetTester tester,
@@ -27,11 +27,27 @@ Future<void> _withApp(
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(_channel, (call) async {
+    return switch (call.method) {
+      'canDrawOverlays' || 'show' => true,
+      _ => null,
+    };
+  });
+  addTearDown(() => TestDefaultBinaryMessengerBinding
+      .instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(_channel, null));
   final db = AppDatabase.forTesting(NativeDatabase.memory());
-  if (seed != null) await tester.runAsync(() => seed(db));
+  await tester.runAsync(() async {
+    await SettingsRepository(db).setValue(systemOverlayEnabledKey, 'true');
+    if (seed != null) await seed(db);
+  });
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [appDatabaseProvider.overrideWithValue(db)],
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        systemOverlaySupportedProvider.overrideWithValue(true),
+      ],
       child: const HomeOrganizerApp(),
     ),
   );
@@ -45,10 +61,14 @@ Future<void> _withApp(
   }
 }
 
+/// Выбор действия в системном оверлее (событие от нативной стороны).
 Future<void> _openAction(WidgetTester tester, String id) async {
-  await tester.tap(find.byKey(_button));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(ValueKey('quick_action_$id')));
+  await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage(
+    _channel.name,
+    _channel.codec.encodeMethodCall(MethodCall('onAction', {'id': id})),
+    (_) {},
+  );
   await tester.pumpAndSettle();
 }
 
@@ -61,132 +81,22 @@ Future<void> _pick(WidgetTester tester, String key, String label) async {
 }
 
 void main() {
-  group('настройки', () {
-    late AppDatabase db;
-    late ProviderContainer container;
-
-    setUp(() {
-      db = AppDatabase.forTesting(NativeDatabase.memory());
-      container = ProviderContainer(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-      );
-    });
-
-    tearDown(() async {
-      container.dispose();
-      await db.close();
-    });
-
-    test('кнопка по умолчанию показана, выбор сохраняется', () async {
-      final repo = container.read(settingsRepositoryProvider);
-      final controller = container.read(settingsControllerProvider);
-      expect(resolveShowQuickActionsWidget(await repo.readAll()), isTrue);
-
-      await controller.setShowQuickActionsWidget(false);
-      expect(resolveShowQuickActionsWidget(await repo.readAll()), isFalse);
-
-      await controller.setShowQuickActionsWidget(true);
-      expect(resolveShowQuickActionsWidget(await repo.readAll()), isTrue);
-    });
-
-    test('положение кнопки сохраняется и разбирается', () async {
-      const position =
-          QuickButtonPosition(isLeft: true, verticalFraction: 0.25);
-      await container
-          .read(settingsControllerProvider)
-          .setQuickButtonPosition(position);
-      final raw = (await container.read(settingsRepositoryProvider).readAll())[
-          quickActionsPositionKey];
-      expect(QuickButtonPosition.decode(raw), position);
-    });
-
-    test('повреждённое положение — положение по умолчанию', () {
-      expect(QuickButtonPosition.decode(null), QuickButtonPosition.initial);
-      expect(QuickButtonPosition.decode('abc'), QuickButtonPosition.initial);
-      expect(QuickButtonPosition.decode('left:NaN'),
-          QuickButtonPosition.initial);
-      expect(QuickButtonPosition.decode('right:7').verticalFraction, 1.0);
-    });
+  test('повреждённое положение — положение по умолчанию', () {
+    expect(QuickButtonPosition.decode(null), QuickButtonPosition.initial);
+    expect(QuickButtonPosition.decode('abc'), QuickButtonPosition.initial);
+    expect(QuickButtonPosition.decode('left:NaN'),
+        QuickButtonPosition.initial);
+    expect(QuickButtonPosition.decode('right:7').verticalFraction, 1.0);
   });
 
-  testWidgets('переключатель в Настройках сразу скрывает и возвращает кнопку',
-      (tester) async {
+  testWidgets('в окне LifeOS нет внутренней плавающей кнопки', (tester) async {
     await _withApp(tester, (db) async {
-      expect(find.byKey(_button), findsOneWidget);
-
+      expect(find.byKey(const ValueKey('quick_actions_button')), findsNothing);
       await tester.tap(find.text('Настройки'));
       await tester.pumpAndSettle();
-      final toggle = find.byKey(const ValueKey('quick_actions_widget_switch'));
-      await tester.ensureVisible(toggle);
-      await tester.pumpAndSettle();
-      expect(find.text('Плавающая кнопка быстрых действий'), findsOneWidget);
-
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.byType(QuickActionsOverlay), findsNothing);
-
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.byKey(_button), findsOneWidget);
-    });
-  });
-
-  testWidgets('меню показывает пункты только включённых разделов',
-      (tester) async {
-    await _withApp(
-      tester,
-      seed: (db) => SettingsRepository(db)
-          .setValue(AppModule.finance.storageKey, 'false'),
-      (db) async {
-        await tester.tap(find.byKey(_button));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('quick_action_expense')), findsNothing);
-        expect(find.byKey(const ValueKey('quick_action_note')), findsOneWidget);
-        expect(
-            find.byKey(const ValueKey('quick_action_check_in')), findsOneWidget);
-
-        // Тап мимо меню закрывает его.
-        await tester.tapAt(const Offset(800, 100));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('quick_action_note')), findsNothing);
-      },
-    );
-  });
-
-  testWidgets('перетаскивание примагничивает кнопку к краю и запоминает его',
-      (tester) async {
-    await _withApp(tester, (db) async {
-      final start = tester.getCenter(find.byKey(_button));
-      expect(start.dx, greaterThan(800));
-
-      await tester.drag(find.byKey(_button), const Offset(-900, -200));
-      await tester.pumpAndSettle();
-      final end = tester.getCenter(find.byKey(_button));
-      // Кнопка у левого края области разделов (правее бокового меню).
-      expect(end.dx, lessThan(800));
-      expect(end.dy, lessThan(start.dy));
-
-      final raw = (await tester.runAsync(SettingsRepository(db).readAll))![
-          quickActionsPositionKey];
-      expect(QuickButtonPosition.decode(raw).isLeft, isTrue);
-    });
-  });
-
-  testWidgets('Ctrl+Shift+Q открывает меню, цифра запускает действие',
-      (tester) async {
-    await _withApp(tester, (db) async {
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyQ);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('quick_action_note')), findsOneWidget);
-
-      // «4» — «Заметка».
-      await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
-      await tester.pumpAndSettle();
-      expect(find.text('Быстрая заметка'), findsOneWidget);
+      expect(find.text('Плавающая кнопка быстрых действий'), findsNothing);
+      expect(find.text('Системный оверлей быстрого доступа поверх всех окон'),
+          findsOneWidget);
     });
   });
 

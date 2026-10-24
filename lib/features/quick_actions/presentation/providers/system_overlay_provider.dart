@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/system_overlay_service.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
-import '../widgets/quick_actions_overlay.dart';
+import '../quick_menu_actions.dart';
 
 /// Есть ли нативный оверлей на этой платформе (в тестах переопределяется).
 final systemOverlaySupportedProvider =

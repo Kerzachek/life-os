@@ -6,8 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../quick_actions/presentation/providers/system_overlay_provider.dart';
 import '../providers/settings_provider.dart';
 
-/// Блок «Системная кнопка быстрых действий»: кнопка поверх всех окон и
-/// приложений ОС, вне окна LifeOS. Выключение сразу уничтожает оверлей.
+/// Блок «Системный оверлей быстрого доступа»: кнопка поверх всех окон и
+/// приложений ОС, вне окна LifeOS — единственная точка быстрых действий.
+/// Выключение сразу уничтожает оверлей.
 class SystemOverlaySettingsCard extends ConsumerWidget {
   const SystemOverlaySettingsCard({super.key});
 
@@ -48,7 +49,7 @@ class SystemOverlaySettingsCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Системная кнопка быстрых действий',
+                    'Системный оверлей быстрого доступа поверх всех окон',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,

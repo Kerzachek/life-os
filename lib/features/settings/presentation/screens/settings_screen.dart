@@ -7,7 +7,6 @@ import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/module_toggle_tile.dart';
 import '../widgets/notification_settings_card.dart';
-import '../widgets/quick_actions_settings_card.dart';
 import '../widgets/sync_settings_card.dart';
 import '../widgets/system_overlay_settings_card.dart';
 import '../widgets/system_settings_card.dart';
@@ -109,8 +108,6 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               const NotificationSettingsCard(),
-              const SizedBox(height: 16),
-              const QuickActionsSettingsCard(),
               const SizedBox(height: 16),
               if (ref.watch(systemOverlaySupportedProvider)) ...[
                 const SystemOverlaySettingsCard(),

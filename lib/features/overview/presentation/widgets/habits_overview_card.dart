@@ -28,7 +28,7 @@ class HabitsOverviewCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.local_fire_department_rounded,
                     size: 18,
                     color: Colors.orange,

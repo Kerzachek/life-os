@@ -45,47 +45,89 @@ class NotesScreen extends ConsumerWidget {
       const SizedBox(height: 20),
     ];
 
-    final body = notesAsync.when(
-      data: (notes) {
-        if (notes.isEmpty) return const _EmptyNotes();
-        final pinned = notes.where((n) => n.isPinned).toList();
-        final others = notes.where((n) => !n.isPinned).toList();
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= twoColumnMinWidth ? 2 : 1;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (pinned.isNotEmpty) ...[
-                  const _SectionLabel('Закреплённые'),
-                  _MasonryGrid(columns: columns, notes: pinned),
-                  const SizedBox(height: 20),
-                  if (others.isNotEmpty) const _SectionLabel('Остальные'),
-                ],
-                _MasonryGrid(columns: columns, notes: others),
+    final horizontal = mobile ? 12.0 : 20.0;
+
+    // Одна колонка (телефон) — ленивый список: карточки строятся по мере
+    // прокрутки. Сетку в две колонки раскладывать лениво нельзя — высоты
+    // колонок зависят от всех карточек.
+    List<Widget> section(List<Note> notes, int columns) => [
+          if (columns == 1)
+            SliverList.builder(
+              itemCount: notes.length,
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.only(bottom: _MasonryGrid.gap),
+                child: NoteCard(key: ValueKey(notes[i].id), note: notes[i]),
+              ),
+            )
+          else
+            SliverToBoxAdapter(
+              child: _MasonryGrid(columns: columns, notes: notes),
+            ),
+        ];
+
+    List<Widget> body(int columns) => notesAsync.when(
+          data: (notes) {
+            if (notes.isEmpty) {
+              return const [SliverToBoxAdapter(child: _EmptyNotes())];
+            }
+            final pinned = notes.where((n) => n.isPinned).toList();
+            final others = notes.where((n) => !n.isPinned).toList();
+            return [
+              if (pinned.isNotEmpty) ...[
+                const SliverToBoxAdapter(child: _SectionLabel('Закреплённые')),
+                ...section(pinned, columns),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      if (others.isNotEmpty) const _SectionLabel('Остальные'),
+                    ],
+                  ),
+                ),
               ],
-            );
+              ...section(others, columns),
+            ];
           },
+          loading: () => const [
+            SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ],
+          error: (err, _) => [SliverToBoxAdapter(child: Text('Ошибка: $err'))],
         );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Text('Ошибка: $err'),
-    );
 
     return Scaffold(
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: maxEditorWidth),
-          child: ListView(
-            // Снизу — место под плавающую кнопку.
-            padding: EdgeInsets.fromLTRB(
-              mobile ? 12 : 20,
-              mobile ? 12 : 20,
-              mobile ? 12 : 20,
-              88,
-            ),
-            children: [...header, body],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final columns =
+                  constraints.maxWidth - 2 * horizontal >= twoColumnMinWidth
+                      ? 2
+                      : 1;
+              return CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    // Снизу — место под плавающую кнопку.
+                    padding: EdgeInsets.fromLTRB(
+                      horizontal,
+                      mobile ? 12 : 20,
+                      horizontal,
+                      88,
+                    ),
+                    sliver: SliverMainAxisGroup(
+                      slivers: [
+                        SliverList.list(children: header),
+                        ...body(columns),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -107,7 +149,7 @@ class _MasonryGrid extends StatelessWidget {
   final int columns;
   final List<Note> notes;
 
-  static const double _gap = 12;
+  static const double gap = 12;
 
   @override
   Widget build(BuildContext context) {
@@ -116,18 +158,17 @@ class _MasonryGrid extends StatelessWidget {
       children: [
         for (var i = index; i < notes.length; i += columns)
           Padding(
-            padding: const EdgeInsets.only(bottom: _gap),
+            padding: const EdgeInsets.only(bottom: gap),
             child: NoteCard(key: ValueKey(notes[i].id), note: notes[i]),
           ),
       ],
     );
 
-    if (columns == 1) return column(0);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var c = 0; c < columns; c++) ...[
-          if (c > 0) const SizedBox(width: _gap),
+          if (c > 0) const SizedBox(width: gap),
           Expanded(child: column(c)),
         ],
       ],

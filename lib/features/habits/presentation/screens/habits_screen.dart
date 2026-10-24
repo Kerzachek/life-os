@@ -91,7 +91,7 @@ class _HabitsListSection extends ConsumerWidget {
           child: habitsAsync.when(
             data: (habits) {
               if (habits.isEmpty) {
-                return _EmptyStateView(
+                return const _EmptyStateView(
                   icon: Icons.local_fire_department_outlined,
                   title: 'Привычек пока нет',
                   subtitle: 'Нажмите "+", чтобы создать новую привычку',

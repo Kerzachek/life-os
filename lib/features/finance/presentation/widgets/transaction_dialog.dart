@@ -200,7 +200,7 @@ class _TransactionDialogState extends ConsumerState<TransactionDialog> {
                   controller: _note,
                   decoration: InputDecoration(
                     labelText: quick ? 'Комментарий' : 'Заметка',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 if (_error != null) ...[

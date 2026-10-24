@@ -14,12 +14,6 @@ const String backgroundModeKey = 'background_mode_enabled';
 /// здесь хранится последний выбор пользователя.
 const String launchAtStartupKey = 'launch_at_startup';
 
-/// Ключ переключателя плавающей кнопки быстрых действий.
-const String quickActionsWidgetKey = 'quick_actions_widget_enabled';
-
-/// Ключ последнего положения плавающей кнопки (см. [QuickButtonPosition]).
-const String quickActionsPositionKey = 'quick_actions_widget_position';
-
 /// Ключ переключателя системного оверлея (кнопка поверх всех окон ОС).
 const String systemOverlayEnabledKey = 'system_overlay_enabled';
 
@@ -54,11 +48,6 @@ bool resolveBackgroundModeEnabled(Map<String, String> settings) {
   return _parseBool(settings[backgroundModeKey]) ?? true;
 }
 
-/// Показывать ли плавающую кнопку быстрых действий (по умолчанию — да).
-bool resolveShowQuickActionsWidget(Map<String, String> settings) {
-  return _parseBool(settings[quickActionsWidgetKey]) ?? true;
-}
-
 /// Включён ли системный оверлей (по умолчанию — нет: на Android нужен
 /// отдельный доступ «Поверх других приложений»).
 bool resolveSystemOverlayEnabled(Map<String, String> settings) {
@@ -66,12 +55,12 @@ bool resolveSystemOverlayEnabled(Map<String, String> settings) {
 }
 
 /// Прятать ли системный оверлей при открытом окне LifeOS (по умолчанию —
-/// да: внутри окна есть своя плавающая кнопка).
+/// да: кнопка не перекрывает интерфейс самого приложения).
 bool resolveSystemOverlayHideWhenAppVisible(Map<String, String> settings) {
   return _parseBool(settings[systemOverlayHideWhenAppVisibleKey]) ?? true;
 }
 
-/// Положение плавающей кнопки: прижата к левому или правому краю, по
+/// Положение кнопки системного оверлея: прижата к левому или правому краю, по
 /// вертикали — доля доступной высоты. Доля, а не пиксели: окно меняет
 /// размер, телефон поворачивается — кнопка остаётся «на том же месте».
 class QuickButtonPosition {
@@ -138,19 +127,6 @@ final backgroundModeEnabledProvider = Provider<bool>((ref) {
   return resolveBackgroundModeEnabled(settings);
 });
 
-/// Показывается ли плавающая кнопка быстрых действий.
-final showQuickActionsWidgetProvider = Provider<bool>((ref) {
-  final settings = ref.watch(rawSettingsStreamProvider).value;
-  if (settings == null) return true;
-  return resolveShowQuickActionsWidget(settings);
-});
-
-/// Сохранённое положение плавающей кнопки.
-final quickButtonPositionProvider = Provider<QuickButtonPosition>((ref) {
-  final settings = ref.watch(rawSettingsStreamProvider).value;
-  return QuickButtonPosition.decode(settings?[quickActionsPositionKey]);
-});
-
 /// Включён ли системный оверлей.
 final systemOverlayEnabledProvider = Provider<bool>((ref) {
   final settings = ref.watch(rawSettingsStreamProvider).value;
@@ -203,14 +179,6 @@ class SettingsController {
 
   Future<void> setBackgroundModeEnabled(bool enabled) {
     return _repository.setValue(backgroundModeKey, enabled.toString());
-  }
-
-  Future<void> setShowQuickActionsWidget(bool enabled) {
-    return _repository.setValue(quickActionsWidgetKey, enabled.toString());
-  }
-
-  Future<void> setQuickButtonPosition(QuickButtonPosition position) {
-    return _repository.setValue(quickActionsPositionKey, position.encode());
   }
 
   Future<void> setSystemOverlayEnabled(bool enabled) {
