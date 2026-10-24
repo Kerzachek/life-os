@@ -22,6 +22,7 @@ void main() {
       name: id,
       kind: kind.value,
       balance: balance,
+      initialBalance: balance,
       isFlexibleSchedule: false,
     );
   }

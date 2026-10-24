@@ -1,6 +1,8 @@
 ﻿import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../features/finance/data/repositories/finance_repository.dart';
+import '../../features/finance/domain/finance_calculations.dart';
 import '../database/app_database.dart';
 import 'sync_payload.dart';
 import 'sync_table_adapter.dart';
@@ -21,15 +23,55 @@ TaskEntity taskFromSyncJson(
 
 /// [FinanceAccountEntity.fromJson] с поддержкой снимков старых версий, где
 /// ещё нет полей плавающего графика (`isFlexibleSchedule` → `false`,
-/// `nextPaymentDate` / `nextPaymentAmount` → `null`).
+/// `nextPaymentDate` / `nextPaymentAmount` → `null`) и начального остатка
+/// (`initialBalance` → `0`; при слиянии он заранее выводится из операций
+/// снимка, см. [withDerivedInitialBalances]).
 FinanceAccountEntity financeAccountFromSyncJson(
   Map<String, dynamic> json, {
   ValueSerializer? serializer,
 }) {
   return FinanceAccountEntity.fromJson(
-    {...json, 'isFlexibleSchedule': json['isFlexibleSchedule'] ?? false},
+    {
+      ...json,
+      'isFlexibleSchedule': json['isFlexibleSchedule'] ?? false,
+      'initialBalance': json['initialBalance'] ?? 0.0,
+    },
     serializer: serializer,
   );
+}
+
+/// Снимок версии до v1.8.8 не содержит `initialBalance`. Его баланс был
+/// согласован с операциями того же снимка, поэтому начальный остаток
+/// выводится из них — иначе пересчёт после слияния учёл бы операции дважды.
+Map<String, List<Map<String, dynamic>>> withDerivedInitialBalances(
+  Map<String, List<Map<String, dynamic>>> tables,
+) {
+  final accounts = tables['finance_accounts'];
+  if (accounts == null ||
+      accounts.every((a) => a.containsKey('initialBalance'))) {
+    return tables;
+  }
+  final transactions = [
+    for (final t in tables['finance_transactions'] ?? const [])
+      FinanceTransactionEntity.fromJson(t, serializer: syncValueSerializer),
+  ];
+  return {
+    ...tables,
+    'finance_accounts': [
+      for (final a in accounts)
+        if (a.containsKey('initialBalance'))
+          a
+        else
+          {
+            ...a,
+            'initialBalance': roundMoney(initialBalanceFor(
+              kind: (a['kind'] as num?)?.toInt() ?? 0,
+              balance: (a['balance'] as num?)?.toDouble() ?? 0,
+              flow: accountMoneyFlow(a['id'] as String, transactions),
+            )),
+          },
+    ],
+  };
 }
 
 /// [ObligationEntity.fromJson] с поддержкой снимков старых версий, где ещё
@@ -187,21 +229,41 @@ class SyncEngine {
   }
 
   /// Построчно сливает [remotePayload] в локальную БД (Last-Write-Wins).
+  ///
+  /// Балансы продуктов затем пересчитываются из операций в той же
+  /// транзакции: запись счёта сливается целиком, и без пересчёта операции,
+  /// добавленные параллельно на другом устройстве, потерялись бы в балансе.
   Future<MergeResult> mergeFromSyncPayload(SyncPayload remotePayload) {
     if (remotePayload.version > SyncPayload.currentVersion) {
       throw SyncFormatException(
         'Неподдерживаемая версия файла синхронизации: ${remotePayload.version}',
       );
     }
+    final tables = withDerivedInitialBalances(remotePayload.tables);
     return _db.transaction(() async {
       var result = const MergeResult();
       for (final table in _tables) {
-        final rows = remotePayload.tables[table.name];
+        final rows = tables[table.name];
         if (rows == null || rows.isEmpty) continue;
         result += await table.merge(rows);
       }
+      await FinanceRepository(_db)
+          .recalculateBalances(_touchedAccounts(tables));
       return result;
     });
+  }
+
+  /// Продукты, чьи записи или операции пришли в снимке.
+  static Set<String> _touchedAccounts(
+    Map<String, List<Map<String, dynamic>>> tables,
+  ) {
+    return {
+      for (final a in tables['finance_accounts'] ?? const []) a['id'] as String,
+      for (final t in tables['finance_transactions'] ?? const []) ...[
+        t['accountId'] as String,
+        ?t['targetAccountId'] as String?,
+      ],
+    };
   }
 }
 

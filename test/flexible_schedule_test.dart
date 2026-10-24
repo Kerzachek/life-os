@@ -28,6 +28,7 @@ FinanceAccountEntity _loan({
     name: 'Сплит',
     kind: FinanceAccountKind.loan.value,
     balance: balance,
+    initialBalance: balance,
     isFlexibleSchedule: flexible,
     nextPaymentDate: nextDate,
     nextPaymentAmount: nextAmount,

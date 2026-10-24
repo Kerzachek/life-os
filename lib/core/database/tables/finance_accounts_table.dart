@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+
 import 'syncable_table.dart';
 
 /// Финансовые продукты: счета, кредиты и депозиты.
@@ -15,11 +16,20 @@ import 'syncable_table.dart';
 /// * кредитная карта: [balance] — текущий долг (использованный лимит),
 ///   [targetAmount] — кредитный лимит. Отдельных колонок нет, поэтому старые
 ///   записи и снимки синхронизации читаются без миграции.
+///
+/// [balance] — производное значение: [initialBalance] плюс влияние всех
+/// неудалённых операций (см. `FinanceRepository.recalculateBalances`).
+/// Поэтому операции, добавленные на двух устройствах, не теряются при
+/// слиянии, хотя сама запись счёта сливается по Last-Write-Wins.
 @DataClassName('FinanceAccountEntity')
 class FinanceAccounts extends Table with SyncableTable {
   TextColumn get name => text()();
   IntColumn get kind => integer().withDefault(const Constant(0))();
   RealColumn get balance => real().withDefault(const Constant(0))();
+
+  /// Начальный остаток на момент создания продукта (в тех же единицах, что
+  /// и [balance]: для кредита и кредитки — долг).
+  RealColumn get initialBalance => real().withDefault(const Constant(0))();
   RealColumn get targetAmount => real().nullable()();
   RealColumn get interestRate => real().nullable()();
   IntColumn get termMonths => integer().nullable()();

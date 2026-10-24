@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../features/finance/domain/finance_category_presets.dart';
+import '../../features/finance/domain/finance_enums.dart';
 import '../../features/tasks/domain/task_category.dart';
 import 'tables/app_settings_table.dart';
 import 'tables/categories_table.dart';
@@ -45,7 +46,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -111,6 +112,12 @@ class AppDatabase extends _$AppDatabase {
             obligations.accountId,
           ]);
         }
+        if (from < 11) {
+          // Таблица, созданная на шаге v4, уже содержит эту колонку.
+          await _addMissingColumns(
+              m, financeAccounts, [financeAccounts.initialBalance]);
+          await _deriveInitialBalances();
+        }
       },
     );
   }
@@ -131,6 +138,32 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(table, column);
       }
     }
+  }
+
+  /// Подбирает `initial_balance` так, чтобы баланс, пересчитанный по
+  /// операциям, совпал с накопленным до v11 `balance`
+  /// (та же формула, что `initialBalanceFor`).
+  Future<void> _deriveInitialBalances() {
+    final income = FinanceTransactionType.income.value;
+    final liabilities = [
+      for (final k in FinanceAccountKind.values)
+        if (k.isLiability) k.value,
+    ].join(', ');
+    return customStatement('''
+      UPDATE finance_accounts SET initial_balance = ROUND(
+        balance - (CASE WHEN kind IN ($liabilities) THEN -1 ELSE 1 END) *
+        COALESCE((
+          SELECT SUM(
+            CASE WHEN t.account_id = finance_accounts.id
+              THEN (CASE WHEN t.type = $income THEN t.amount ELSE -t.amount END)
+              ELSE 0 END +
+            CASE WHEN t.type <> $income
+                AND t.target_account_id = finance_accounts.id
+              THEN t.amount ELSE 0 END)
+          FROM finance_transactions t
+          WHERE t.deleted_at IS NULL
+        ), 0), 2)
+    ''');
   }
 
   /// Предустановленные категории финансов и счёт по умолчанию (идемпотентно).

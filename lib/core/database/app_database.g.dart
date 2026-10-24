@@ -3859,6 +3859,18 @@ class $FinanceAccountsTable extends FinanceAccounts
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _initialBalanceMeta = const VerificationMeta(
+    'initialBalance',
+  );
+  @override
+  late final GeneratedColumn<double> initialBalance = GeneratedColumn<double>(
+    'initial_balance',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _targetAmountMeta = const VerificationMeta(
     'targetAmount',
   );
@@ -3961,6 +3973,7 @@ class $FinanceAccountsTable extends FinanceAccounts
     name,
     kind,
     balance,
+    initialBalance,
     targetAmount,
     interestRate,
     termMonths,
@@ -4027,6 +4040,15 @@ class $FinanceAccountsTable extends FinanceAccounts
       context.handle(
         _balanceMeta,
         balance.isAcceptableOrUnknown(data['balance']!, _balanceMeta),
+      );
+    }
+    if (data.containsKey('initial_balance')) {
+      context.handle(
+        _initialBalanceMeta,
+        initialBalance.isAcceptableOrUnknown(
+          data['initial_balance']!,
+          _initialBalanceMeta,
+        ),
       );
     }
     if (data.containsKey('target_amount')) {
@@ -4132,6 +4154,10 @@ class $FinanceAccountsTable extends FinanceAccounts
         DriftSqlType.double,
         data['${effectivePrefix}balance'],
       )!,
+      initialBalance: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}initial_balance'],
+      )!,
       targetAmount: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}target_amount'],
@@ -4182,6 +4208,10 @@ class FinanceAccountEntity extends DataClass
   final String name;
   final int kind;
   final double balance;
+
+  /// Начальный остаток на момент создания продукта (в тех же единицах, что
+  /// и [balance]: для кредита и кредитки — долг).
+  final double initialBalance;
   final double? targetAmount;
   final double? interestRate;
   final int? termMonths;
@@ -4201,6 +4231,7 @@ class FinanceAccountEntity extends DataClass
     required this.name,
     required this.kind,
     required this.balance,
+    required this.initialBalance,
     this.targetAmount,
     this.interestRate,
     this.termMonths,
@@ -4222,6 +4253,7 @@ class FinanceAccountEntity extends DataClass
     map['name'] = Variable<String>(name);
     map['kind'] = Variable<int>(kind);
     map['balance'] = Variable<double>(balance);
+    map['initial_balance'] = Variable<double>(initialBalance);
     if (!nullToAbsent || targetAmount != null) {
       map['target_amount'] = Variable<double>(targetAmount);
     }
@@ -4258,6 +4290,7 @@ class FinanceAccountEntity extends DataClass
       name: Value(name),
       kind: Value(kind),
       balance: Value(balance),
+      initialBalance: Value(initialBalance),
       targetAmount: targetAmount == null && nullToAbsent
           ? const Value.absent()
           : Value(targetAmount),
@@ -4296,6 +4329,7 @@ class FinanceAccountEntity extends DataClass
       name: serializer.fromJson<String>(json['name']),
       kind: serializer.fromJson<int>(json['kind']),
       balance: serializer.fromJson<double>(json['balance']),
+      initialBalance: serializer.fromJson<double>(json['initialBalance']),
       targetAmount: serializer.fromJson<double?>(json['targetAmount']),
       interestRate: serializer.fromJson<double?>(json['interestRate']),
       termMonths: serializer.fromJson<int?>(json['termMonths']),
@@ -4319,6 +4353,7 @@ class FinanceAccountEntity extends DataClass
       'name': serializer.toJson<String>(name),
       'kind': serializer.toJson<int>(kind),
       'balance': serializer.toJson<double>(balance),
+      'initialBalance': serializer.toJson<double>(initialBalance),
       'targetAmount': serializer.toJson<double?>(targetAmount),
       'interestRate': serializer.toJson<double?>(interestRate),
       'termMonths': serializer.toJson<int?>(termMonths),
@@ -4338,6 +4373,7 @@ class FinanceAccountEntity extends DataClass
     String? name,
     int? kind,
     double? balance,
+    double? initialBalance,
     Value<double?> targetAmount = const Value.absent(),
     Value<double?> interestRate = const Value.absent(),
     Value<int?> termMonths = const Value.absent(),
@@ -4354,6 +4390,7 @@ class FinanceAccountEntity extends DataClass
     name: name ?? this.name,
     kind: kind ?? this.kind,
     balance: balance ?? this.balance,
+    initialBalance: initialBalance ?? this.initialBalance,
     targetAmount: targetAmount.present ? targetAmount.value : this.targetAmount,
     interestRate: interestRate.present ? interestRate.value : this.interestRate,
     termMonths: termMonths.present ? termMonths.value : this.termMonths,
@@ -4378,6 +4415,9 @@ class FinanceAccountEntity extends DataClass
       name: data.name.present ? data.name.value : this.name,
       kind: data.kind.present ? data.kind.value : this.kind,
       balance: data.balance.present ? data.balance.value : this.balance,
+      initialBalance: data.initialBalance.present
+          ? data.initialBalance.value
+          : this.initialBalance,
       targetAmount: data.targetAmount.present
           ? data.targetAmount.value
           : this.targetAmount,
@@ -4415,6 +4455,7 @@ class FinanceAccountEntity extends DataClass
           ..write('name: $name, ')
           ..write('kind: $kind, ')
           ..write('balance: $balance, ')
+          ..write('initialBalance: $initialBalance, ')
           ..write('targetAmount: $targetAmount, ')
           ..write('interestRate: $interestRate, ')
           ..write('termMonths: $termMonths, ')
@@ -4436,6 +4477,7 @@ class FinanceAccountEntity extends DataClass
     name,
     kind,
     balance,
+    initialBalance,
     targetAmount,
     interestRate,
     termMonths,
@@ -4456,6 +4498,7 @@ class FinanceAccountEntity extends DataClass
           other.name == this.name &&
           other.kind == this.kind &&
           other.balance == this.balance &&
+          other.initialBalance == this.initialBalance &&
           other.targetAmount == this.targetAmount &&
           other.interestRate == this.interestRate &&
           other.termMonths == this.termMonths &&
@@ -4474,6 +4517,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
   final Value<String> name;
   final Value<int> kind;
   final Value<double> balance;
+  final Value<double> initialBalance;
   final Value<double?> targetAmount;
   final Value<double?> interestRate;
   final Value<int?> termMonths;
@@ -4491,6 +4535,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     this.name = const Value.absent(),
     this.kind = const Value.absent(),
     this.balance = const Value.absent(),
+    this.initialBalance = const Value.absent(),
     this.targetAmount = const Value.absent(),
     this.interestRate = const Value.absent(),
     this.termMonths = const Value.absent(),
@@ -4509,6 +4554,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     required String name,
     this.kind = const Value.absent(),
     this.balance = const Value.absent(),
+    this.initialBalance = const Value.absent(),
     this.targetAmount = const Value.absent(),
     this.interestRate = const Value.absent(),
     this.termMonths = const Value.absent(),
@@ -4530,6 +4576,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     Expression<String>? name,
     Expression<int>? kind,
     Expression<double>? balance,
+    Expression<double>? initialBalance,
     Expression<double>? targetAmount,
     Expression<double>? interestRate,
     Expression<int>? termMonths,
@@ -4548,6 +4595,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
       if (name != null) 'name': name,
       if (kind != null) 'kind': kind,
       if (balance != null) 'balance': balance,
+      if (initialBalance != null) 'initial_balance': initialBalance,
       if (targetAmount != null) 'target_amount': targetAmount,
       if (interestRate != null) 'interest_rate': interestRate,
       if (termMonths != null) 'term_months': termMonths,
@@ -4569,6 +4617,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     Value<String>? name,
     Value<int>? kind,
     Value<double>? balance,
+    Value<double>? initialBalance,
     Value<double?>? targetAmount,
     Value<double?>? interestRate,
     Value<int?>? termMonths,
@@ -4587,6 +4636,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
       name: name ?? this.name,
       kind: kind ?? this.kind,
       balance: balance ?? this.balance,
+      initialBalance: initialBalance ?? this.initialBalance,
       targetAmount: targetAmount ?? this.targetAmount,
       interestRate: interestRate ?? this.interestRate,
       termMonths: termMonths ?? this.termMonths,
@@ -4622,6 +4672,9 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
     }
     if (balance.present) {
       map['balance'] = Variable<double>(balance.value);
+    }
+    if (initialBalance.present) {
+      map['initial_balance'] = Variable<double>(initialBalance.value);
     }
     if (targetAmount.present) {
       map['target_amount'] = Variable<double>(targetAmount.value);
@@ -4663,6 +4716,7 @@ class FinanceAccountsCompanion extends UpdateCompanion<FinanceAccountEntity> {
           ..write('name: $name, ')
           ..write('kind: $kind, ')
           ..write('balance: $balance, ')
+          ..write('initialBalance: $initialBalance, ')
           ..write('targetAmount: $targetAmount, ')
           ..write('interestRate: $interestRate, ')
           ..write('termMonths: $termMonths, ')
@@ -11298,6 +11352,7 @@ typedef $$FinanceAccountsTableCreateCompanionBuilder =
       required String name,
       Value<int> kind,
       Value<double> balance,
+      Value<double> initialBalance,
       Value<double?> targetAmount,
       Value<double?> interestRate,
       Value<int?> termMonths,
@@ -11317,6 +11372,7 @@ typedef $$FinanceAccountsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<int> kind,
       Value<double> balance,
+      Value<double> initialBalance,
       Value<double?> targetAmount,
       Value<double?> interestRate,
       Value<int?> termMonths,
@@ -11469,6 +11525,11 @@ class $$FinanceAccountsTableFilterComposer
 
   ColumnFilters<double> get balance => $composableBuilder(
     column: $table.balance,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get initialBalance => $composableBuilder(
+    column: $table.initialBalance,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11657,6 +11718,11 @@ class $$FinanceAccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get initialBalance => $composableBuilder(
+    column: $table.initialBalance,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get targetAmount => $composableBuilder(
     column: $table.targetAmount,
     builder: (column) => ColumnOrderings(column),
@@ -11727,6 +11793,11 @@ class $$FinanceAccountsTableAnnotationComposer
 
   GeneratedColumn<double> get balance =>
       $composableBuilder(column: $table.balance, builder: (column) => column);
+
+  GeneratedColumn<double> get initialBalance => $composableBuilder(
+    column: $table.initialBalance,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<double> get targetAmount => $composableBuilder(
     column: $table.targetAmount,
@@ -11913,6 +11984,7 @@ class $$FinanceAccountsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> kind = const Value.absent(),
                 Value<double> balance = const Value.absent(),
+                Value<double> initialBalance = const Value.absent(),
                 Value<double?> targetAmount = const Value.absent(),
                 Value<double?> interestRate = const Value.absent(),
                 Value<int?> termMonths = const Value.absent(),
@@ -11930,6 +12002,7 @@ class $$FinanceAccountsTableTableManager
                 name: name,
                 kind: kind,
                 balance: balance,
+                initialBalance: initialBalance,
                 targetAmount: targetAmount,
                 interestRate: interestRate,
                 termMonths: termMonths,
@@ -11949,6 +12022,7 @@ class $$FinanceAccountsTableTableManager
                 required String name,
                 Value<int> kind = const Value.absent(),
                 Value<double> balance = const Value.absent(),
+                Value<double> initialBalance = const Value.absent(),
                 Value<double?> targetAmount = const Value.absent(),
                 Value<double?> interestRate = const Value.absent(),
                 Value<int?> termMonths = const Value.absent(),
@@ -11966,6 +12040,7 @@ class $$FinanceAccountsTableTableManager
                 name: name,
                 kind: kind,
                 balance: balance,
+                initialBalance: initialBalance,
                 targetAmount: targetAmount,
                 interestRate: interestRate,
                 termMonths: termMonths,

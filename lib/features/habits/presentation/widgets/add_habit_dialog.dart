@@ -26,7 +26,10 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
   late final TextEditingController _targetValueController;
   late final TextEditingController _unitController;
 
+  late final TextEditingController _intervalController;
+
   late HabitFrequencyType _frequencyType;
+  late Set<int> _weekdays;
   late String _iconKey;
   late Color _color;
 
@@ -44,9 +47,16 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
     _unitController = TextEditingController(
       text: h == null ? 'раз' : h.unit ?? '',
     );
-    _frequencyType = h == null
-        ? HabitFrequencyType.daily
-        : HabitFrequencyType.fromValue(h.frequencyType);
+    final schedule = h == null
+        ? const HabitSchedule.daily()
+        : HabitSchedule.parse(h.frequencyType, h.frequencyValue);
+    _frequencyType = schedule.type;
+    _weekdays = schedule.weekdays.isEmpty
+        ? habitWeekdayLabels.keys.toSet()
+        : {...schedule.weekdays};
+    _intervalController = TextEditingController(
+      text: '${schedule.intervalDays < 2 ? 2 : schedule.intervalDays}',
+    );
     _iconKey = habitIcons.containsKey(h?.icon) ? h!.icon! : defaultHabitIconKey;
     _color = habitColorFromHex(h?.color) ?? habitColorPalette.first;
   }
@@ -57,7 +67,22 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
     _descriptionController.dispose();
     _targetValueController.dispose();
     _unitController.dispose();
+    _intervalController.dispose();
     super.dispose();
+  }
+
+  /// Значение `frequencyValue` для выбранной регулярности.
+  String? _frequencyValue() {
+    switch (_frequencyType) {
+      case HabitFrequencyType.daily:
+        return null;
+      case HabitFrequencyType.weekly:
+        return HabitSchedule.weekly(_weekdays).encode();
+      case HabitFrequencyType.interval:
+        return HabitSchedule.interval(
+          int.tryParse(_intervalController.text.trim()) ?? 1,
+        ).encode();
+    }
   }
 
   void _submit() {
@@ -78,6 +103,7 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
           title: title,
           description: description,
           frequencyType: _frequencyType,
+          frequencyValue: _frequencyValue(),
           targetValue: targetVal,
           unit: unit,
           color: habitColorToHex(_color),
@@ -88,6 +114,7 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
           title: title,
           description: description,
           frequencyType: _frequencyType,
+          frequencyValue: _frequencyValue(),
           targetValue: targetVal,
           unit: unit,
           color: habitColorToHex(_color),
@@ -187,6 +214,66 @@ class _AddHabitDialogState extends ConsumerState<AddHabitDialog> {
                     if (val != null) setState(() => _frequencyType = val);
                   },
                 ),
+                if (_frequencyType == HabitFrequencyType.weekly) ...[
+                  const SizedBox(height: 12),
+                  FormField<Set<int>>(
+                    validator: (_) =>
+                        _weekdays.isEmpty ? 'Выберите хотя бы один день' : null,
+                    builder: (field) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final e in habitWeekdayLabels.entries)
+                              FilterChip(
+                                key: ValueKey('habit_weekday_${e.key}'),
+                                label: Text(e.value),
+                                selected: _weekdays.contains(e.key),
+                                onSelected: (on) => setState(() {
+                                  if (on) {
+                                    _weekdays.add(e.key);
+                                  } else {
+                                    _weekdays.remove(e.key);
+                                  }
+                                  field.didChange(_weekdays);
+                                }),
+                              ),
+                          ],
+                        ),
+                        if (field.errorText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              field.errorText!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (_frequencyType == HabitFrequencyType.interval) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: const ValueKey('habit_interval'),
+                    controller: _intervalController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Каждые N дней *',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (val) {
+                      final n = int.tryParse(val?.trim() ?? '');
+                      if (n == null || n < 1) return 'Число от 1';
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Text('Иконка', style: label),
                 const SizedBox(height: 8),

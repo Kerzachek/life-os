@@ -118,6 +118,7 @@ class FinanceRepository {
               name: name,
               kind: Value(kind.value),
               balance: Value(roundMoney(balance)),
+              initialBalance: Value(roundMoney(balance)),
               targetAmount: Value(targetAmount),
               interestRate: Value(interestRate),
               termMonths: Value(termMonths),
@@ -134,6 +135,8 @@ class FinanceRepository {
     return id;
   }
 
+  /// Обновляет продукт. [balance] — желаемый текущий баланс: под него
+  /// подбирается начальный остаток с учётом уже записанных операций.
   Future<void> updateAccount({
     required String id,
     required String name,
@@ -151,12 +154,18 @@ class FinanceRepository {
     final flexible = isFlexibleSchedule && kind == FinanceAccountKind.loan;
     final now = DateTime.now().toUtc();
     await _db.transaction(() async {
+      final initial = await _initialBalanceFor(
+        accountId: id,
+        kind: kind.value,
+        balance: balance,
+      );
       await (_db.update(_db.financeAccounts)..where((a) => a.id.equals(id)))
           .write(
         FinanceAccountsCompanion(
           name: Value(name),
           kind: Value(kind.value),
           balance: Value(roundMoney(balance)),
+          initialBalance: Value(initial),
           targetAmount: Value(targetAmount),
           interestRate: Value(interestRate),
           termMonths: Value(termMonths),
@@ -208,10 +217,14 @@ class FinanceRepository {
 
   /// Мягко удаляет продукт вместе с его операциями и связанными платежами.
   ///
-  /// Балансы других продуктов, затронутых переводами, не пересчитываются.
+  /// Балансы других продуктов, затронутых переводами, не меняются: их
+  /// начальный остаток сдвигается на влияние удалённых операций.
   Future<void> deleteAccount(String id) async {
     final now = DateTime.now().toUtc();
     await _db.transaction(() async {
+      final others = {
+        for (final t in await _liveTransactions([id])) ..._affectedAccounts(t),
+      }..remove(id);
       await (_db.update(_db.financeAccounts)..where((a) => a.id.equals(id)))
           .write(FinanceAccountsCompanion(
         deletedAt: Value(now),
@@ -225,6 +238,19 @@ class FinanceRepository {
         deletedAt: Value(now),
         updatedAt: Value(now),
       ));
+      for (final otherId in others) {
+        final other = await _getAccount(otherId);
+        await (_db.update(_db.financeAccounts)
+              ..where((a) => a.id.equals(otherId)))
+            .write(FinanceAccountsCompanion(
+          initialBalance: Value(await _initialBalanceFor(
+            accountId: otherId,
+            kind: other.kind,
+            balance: other.balance,
+          )),
+          updatedAt: Value(now),
+        ));
+      }
       await (_db.update(_db.obligations)
             ..where((o) => o.loanAccountId.equals(id) & o.deletedAt.isNull()))
           .write(ObligationsCompanion(
@@ -334,13 +360,13 @@ class FinanceRepository {
               obligationId: Value(obligationId),
             ),
           );
-      await _applyEffect(await _getTransaction(id), revert: false);
+      await recalculateBalances({accountId, ?target});
     });
     return id;
   }
 
-  /// Редактирует операцию: старое влияние на балансы откатывается,
-  /// новое применяется.
+  /// Редактирует операцию и пересчитывает балансы продуктов — и прежних,
+  /// и новых.
   Future<void> updateTransaction({
     required String id,
     required FinanceTransactionType type,
@@ -357,7 +383,6 @@ class FinanceRepository {
 
     await _db.transaction(() async {
       final old = await _getTransaction(id);
-      await _applyEffect(old, revert: true);
       await (_db.update(_db.financeTransactions)..where((t) => t.id.equals(id)))
           .write(
         FinanceTransactionsCompanion(
@@ -371,22 +396,24 @@ class FinanceRepository {
           updatedAt: Value(now),
         ),
       );
-      await _applyEffect(await _getTransaction(id), revert: false);
+      await recalculateBalances(
+        {..._affectedAccounts(old), accountId, ?target},
+      );
     });
   }
 
-  /// Мягко удаляет операцию и откатывает её влияние на балансы.
+  /// Мягко удаляет операцию и пересчитывает балансы затронутых продуктов.
   Future<void> deleteTransaction(String id) async {
     final now = DateTime.now().toUtc();
     await _db.transaction(() async {
       final old = await _getTransaction(id);
       if (old.deletedAt != null) return;
-      await _applyEffect(old, revert: true);
       await (_db.update(_db.financeTransactions)..where((t) => t.id.equals(id)))
           .write(FinanceTransactionsCompanion(
         deletedAt: Value(now),
         updatedAt: Value(now),
       ));
+      await recalculateBalances(_affectedAccounts(old));
     });
   }
 
@@ -500,39 +527,66 @@ class FinanceRepository {
         .getSingle();
   }
 
-  /// Применяет (или откатывает при [revert]) влияние операции на балансы.
-  Future<void> _applyEffect(
-    FinanceTransactionEntity t, {
-    required bool revert,
-  }) async {
-    final sign = revert ? -1.0 : 1.0;
-    final type = FinanceTransactionType.fromValue(t.type);
+  /// Ids продуктов, на балансы которых влияет операция [t].
+  static Set<String> _affectedAccounts(FinanceTransactionEntity t) =>
+      {t.accountId, ?t.targetAccountId};
 
-    if (type == FinanceTransactionType.income) {
-      await _adjustBalance(t.accountId, sign * t.amount);
-      return;
+  /// Неудалённые операции, затрагивающие продукты [accountIds]
+  /// (все операции, если `null`).
+  Future<List<FinanceTransactionEntity>> _liveTransactions(
+    Iterable<String>? accountIds,
+  ) {
+    final query = _db.select(_db.financeTransactions)
+      ..where((t) => t.deletedAt.isNull());
+    if (accountIds != null) {
+      final ids = accountIds.toList();
+      query.where((t) => t.accountId.isIn(ids) | t.targetAccountId.isIn(ids));
     }
-
-    await _adjustBalance(t.accountId, -sign * t.amount);
-    final targetId = t.targetAccountId;
-    if (targetId != null) {
-      await _adjustBalance(targetId, sign * t.amount);
-    }
+    return query.get();
   }
 
-  /// Изменяет деньги на продукте на [delta]. У кредита и кредитки `balance` —
-  /// долг, поэтому поступление (платёж, погашение) его уменьшает, а списание
-  /// (трата с кредитки) — увеличивает.
-  Future<void> _adjustBalance(String accountId, double delta) async {
-    final account = await _getAccount(accountId);
-    final isLiability = FinanceAccountKind.fromValue(account.kind).isLiability;
-    await (_db.update(_db.financeAccounts)
-          ..where((a) => a.id.equals(accountId)))
-        .write(FinanceAccountsCompanion(
-      balance: Value(
-          roundMoney(account.balance + (isLiability ? -delta : delta))),
-      updatedAt: Value(DateTime.now().toUtc()),
-    ));
+  /// Пересчитывает балансы продуктов [accountIds] (всех, если `null`) с нуля:
+  /// `balance = initialBalance ± сумма неудалённых операций`.
+  ///
+  /// Баланс — производное значение, поэтому `updatedAt` не меняется: иначе
+  /// пересчёт «побеждал» бы правки названия и параметров с других устройств.
+  Future<void> recalculateBalances([Iterable<String>? accountIds]) {
+    return _db.transaction(() async {
+      final query = _db.select(_db.financeAccounts);
+      if (accountIds != null) {
+        final ids = accountIds.toList();
+        if (ids.isEmpty) return;
+        query.where((a) => a.id.isIn(ids));
+      }
+      final accounts = await query.get();
+      final transactions = await _liveTransactions(accountIds);
+      for (final account in accounts) {
+        final balance = roundMoney(balanceFromFlow(
+          kind: account.kind,
+          initialBalance: account.initialBalance,
+          flow: accountMoneyFlow(account.id, transactions),
+        ));
+        if (balance == account.balance) continue;
+        await (_db.update(_db.financeAccounts)
+              ..where((a) => a.id.equals(account.id)))
+            .write(FinanceAccountsCompanion(balance: Value(balance)));
+      }
+    });
+  }
+
+  /// Начальный остаток, при котором текущий баланс продукта равен [balance].
+  Future<double> _initialBalanceFor({
+    required String accountId,
+    required int kind,
+    required double balance,
+  }) async {
+    final flow = accountMoneyFlow(
+      accountId,
+      await _liveTransactions([accountId]),
+    );
+    return roundMoney(
+      initialBalanceFor(kind: kind, balance: balance, flow: flow),
+    );
   }
 
   // ----------------------------------------------- Обязательные платежи

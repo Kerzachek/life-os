@@ -42,43 +42,31 @@ final habitsWithStatusProvider = Provider<AsyncValue<List<HabitWithStatus>>>((
   final habits = habitsAsync.value ?? [];
   final logs = logsAsync.value ?? [];
 
-  final now = DateTime.now();
-  final todayDate = DateTime(now.year, now.month, now.day);
+  final todayDate = habitDay(DateTime.now());
 
   final result = habits.map((habit) {
     final habitLogs = logs.where((l) => l.habitId == habit.id).toList();
 
-    final loggedDates = <DateTime>{};
-    int todayLoggedVal = 0;
-
+    // Сумма отмеченных значений по календарным дням.
+    final dailyTotals = <DateTime, int>{};
     for (final log in habitLogs) {
-      final local = log.completedAt.toLocal();
-      final dateOnly = DateTime(local.year, local.month, local.day);
-      loggedDates.add(dateOnly);
-
-      if (dateOnly == todayDate) {
-        todayLoggedVal += log.value;
-      }
+      final day = habitDay(log.completedAt);
+      dailyTotals[day] = (dailyTotals[day] ?? 0) + log.value;
     }
 
-    final isCompletedToday = todayLoggedVal >= habit.targetValue;
-
-    // Расчет серии выполнений (стрика)
-    int streak = 0;
-    DateTime checkDate = isCompletedToday
-        ? todayDate
-        : todayDate.subtract(const Duration(days: 1));
-
-    while (loggedDates.contains(checkDate)) {
-      streak++;
-      checkDate = checkDate.subtract(const Duration(days: 1));
-    }
+    final todayLoggedVal = dailyTotals[todayDate] ?? 0;
 
     return HabitWithStatus(
       habit: habit,
-      isCompletedToday: isCompletedToday,
+      isCompletedToday: todayLoggedVal >= habit.targetValue,
       todayLoggedValue: todayLoggedVal,
-      streakCount: streak,
+      streakCount: calculateHabitStreak(
+        schedule:
+            HabitSchedule.parse(habit.frequencyType, habit.frequencyValue),
+        dailyTotals: dailyTotals,
+        targetValue: habit.targetValue,
+        today: todayDate,
+      ),
       recentLogs: habitLogs,
     );
   }).toList();
@@ -99,6 +87,7 @@ class HabitsController {
     required String title,
     String? description,
     HabitFrequencyType frequencyType = HabitFrequencyType.daily,
+    String? frequencyValue,
     int targetValue = 1,
     String? unit,
     String? color,
@@ -108,6 +97,7 @@ class HabitsController {
       title: title,
       description: description,
       frequencyType: frequencyType,
+      frequencyValue: frequencyValue,
       targetValue: targetValue,
       unit: unit,
       color: color,
@@ -120,6 +110,7 @@ class HabitsController {
     required String title,
     String? description,
     HabitFrequencyType frequencyType = HabitFrequencyType.daily,
+    String? frequencyValue,
     int targetValue = 1,
     String? unit,
     String? color,
@@ -130,6 +121,7 @@ class HabitsController {
       title: title,
       description: description,
       frequencyType: frequencyType,
+      frequencyValue: frequencyValue,
       targetValue: targetValue,
       unit: unit,
       color: color,

@@ -24,6 +24,49 @@ extension FinanceCreditLine on FinanceAccountEntity {
       creditLimit <= 0 ? 0 : (currentDebt / creditLimit).clamp(0.0, 1.0);
 }
 
+/// Чистый денежный поток по продукту [accountId]: поступления минус
+/// списания по неудалённым операциям [transactions].
+///
+/// * доход зачисляется на `accountId`;
+/// * расход и перевод списываются с `accountId` и, если указан
+///   `targetAccountId`, зачисляются на него (платёж по кредиту, пополнение).
+double accountMoneyFlow(
+  String accountId,
+  Iterable<FinanceTransactionEntity> transactions,
+) {
+  var flow = 0.0;
+  for (final t in transactions) {
+    if (t.deletedAt != null) continue;
+    final isIncome = FinanceTransactionType.fromValue(t.type) ==
+        FinanceTransactionType.income;
+    if (t.accountId == accountId) flow += isIncome ? t.amount : -t.amount;
+    if (!isIncome && t.targetAccountId == accountId) flow += t.amount;
+  }
+  return flow;
+}
+
+/// Баланс продукта вида [kind] по начальному остатку и денежному потоку.
+/// У кредита и кредитки `balance` — долг, поэтому поступления его уменьшают.
+double balanceFromFlow({
+  required int kind,
+  required double initialBalance,
+  required double flow,
+}) {
+  final isLiability = FinanceAccountKind.fromValue(kind).isLiability;
+  return initialBalance + (isLiability ? -flow : flow);
+}
+
+/// Обратная к [balanceFromFlow]: начальный остаток, при котором продукт с
+/// денежным потоком [flow] имеет баланс [balance].
+double initialBalanceFor({
+  required int kind,
+  required double balance,
+  required double flow,
+}) {
+  final isLiability = FinanceAccountKind.fromValue(kind).isLiability;
+  return balance - (isLiability ? -flow : flow);
+}
+
 /// Сводка для карточек обзора.
 class FinanceSummary {
   const FinanceSummary({
