@@ -5,6 +5,7 @@ import '../../../../core/platform_info.dart';
 import '../../../quick_actions/presentation/providers/system_overlay_provider.dart';
 import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/backup_settings_card.dart';
 import '../widgets/module_toggle_tile.dart';
 import '../widgets/notification_settings_card.dart';
 import '../widgets/sync_settings_card.dart';
@@ -119,6 +120,8 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
               const SyncSettingsCard(),
+              const SizedBox(height: 16),
+              const BackupSettingsCard(),
               const SizedBox(height: 16),
               const UpdateSettingsCard(),
             ],

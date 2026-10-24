@@ -82,6 +82,15 @@ class FinanceRepository {
         .get();
   }
 
+  /// Все продукты, включая удалённые: после слияния с другим устройством
+  /// операция может ссылаться на продукт, удалённый там.
+  Future<List<FinanceAccountEntity>> getAllAccounts() =>
+      _db.select(_db.financeAccounts).get();
+
+  /// Все категории, включая удалённые.
+  Future<List<FinanceCategoryEntity>> getAllCategories() =>
+      _db.select(_db.financeCategories).get();
+
   // --------------------------------------------------------------- Продукты
 
   /// Создаёт счёт / кредит / депозит.
