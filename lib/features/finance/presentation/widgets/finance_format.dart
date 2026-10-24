@@ -34,6 +34,22 @@ const List<String> _monthNames = [
 
 String formatMonth(DateTime month) => '${_monthNames[month.month - 1]} ${month.year}';
 
+/// Короткое название месяца для подписей осей: `Окт`.
+String formatMonthShort(DateTime month) =>
+    _monthNames[month.month - 1].substring(0, 3);
+
+/// Сумма для подписей осей: `950`, `12 тыс`, `1,2 млн`.
+String formatMoneyCompact(double value) {
+  final sign = value < 0 ? '−' : '';
+  final abs = value.abs();
+  if (abs >= 1e6) {
+    final m = (abs / 1e6).toStringAsFixed(abs >= 1e7 ? 0 : 1);
+    return '$sign${m.replaceAll('.', ',')} млн';
+  }
+  if (abs >= 1e3) return '$sign${(abs / 1e3).round()} тыс';
+  return '$sign${abs.round()}';
+}
+
 /// Разбор суммы из поля ввода (допускает запятую и пробелы).
 double? parseMoney(String? raw) {
   if (raw == null) return null;

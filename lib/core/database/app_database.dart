@@ -10,6 +10,7 @@ import '../../features/finance/domain/finance_enums.dart';
 import '../../features/tasks/domain/task_category.dart';
 import 'tables/app_settings_table.dart';
 import 'tables/categories_table.dart';
+import 'tables/category_budgets_table.dart';
 import 'tables/challenge_habits_table.dart';
 import 'tables/challenges_table.dart';
 import 'tables/finance_accounts_table.dart';
@@ -40,13 +41,14 @@ part 'app_database.g.dart';
   RoutineItems,
   RoutineDailyLogs,
   Notes,
+  CategoryBudgets,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -117,6 +119,9 @@ class AppDatabase extends _$AppDatabase {
           await _addMissingColumns(
               m, financeAccounts, [financeAccounts.initialBalance]);
           await _deriveInitialBalances();
+        }
+        if (from < 12) {
+          await m.createTable(categoryBudgets);
         }
       },
     );

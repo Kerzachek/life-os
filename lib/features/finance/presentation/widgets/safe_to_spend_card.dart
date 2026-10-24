@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/category_budgets.dart';
 import '../../domain/finance_calculations.dart';
 import '../providers/finance_provider.dart';
+import 'category_budgets_card.dart';
 import 'finance_format.dart';
 
 /// Оранжевый цвет предупреждения: потрачено 70–100% дневной нормы.
@@ -31,8 +33,13 @@ class SafeToSpendCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final budget = ref.watch(dailySafeBudgetProvider);
+    final alerts = ref.watch(budgetAlertsProvider);
     return budget.when(
-      data: (s) => SafeToSpendContent(state: s, compact: compact),
+      data: (s) => SafeToSpendContent(
+        state: s,
+        compact: compact,
+        budgetAlerts: alerts,
+      ),
       loading: () => const Card(
         child: SizedBox(
           height: 120,
@@ -55,10 +62,14 @@ class SafeToSpendContent extends StatelessWidget {
     super.key,
     required this.state,
     this.compact = false,
+    this.budgetAlerts = const [],
   });
 
   final DailySafeBudgetState state;
   final bool compact;
+
+  /// Категории текущего месяца, где лимит почти исчерпан или превышен.
+  final List<CategoryBudgetStatus> budgetAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +157,10 @@ class SafeToSpendContent extends StatelessWidget {
                 ),
               ),
             ],
+            if (budgetAlerts.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _BudgetAlerts(alerts: budgetAlerts),
+            ],
             if (!compact) ...[
               const SizedBox(height: 12),
               Text(
@@ -164,6 +179,66 @@ class SafeToSpendContent extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Предупреждения о лимитах категорий: траты в них съедят дневную норму
+/// быстрее, чем кажется по общему остатку.
+class _BudgetAlerts extends StatelessWidget {
+  const _BudgetAlerts({required this.alerts});
+
+  final List<CategoryBudgetStatus> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final exceeded = alerts.any((a) => a.level == BudgetLevel.exceeded);
+    final color =
+        exceeded ? AppTheme.fireAccent : safeToSpendWarningColor;
+
+    return Container(
+      key: const ValueKey('safe_budget_alerts'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final a in alerts)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    a.level == BudgetLevel.exceeded
+                        ? Icons.error_outline
+                        : Icons.warning_amber_rounded,
+                    size: 16,
+                    color: budgetLevelColor(a.level),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      a.level == BudgetLevel.exceeded
+                          ? '${a.category.name}: лимит превышен на '
+                              '${formatMoney(-a.remaining)}'
+                          : '${a.category.name}: осталось '
+                              '${formatMoney(a.remaining)} из '
+                              '${formatMoney(a.limit)}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: budgetLevelColor(a.level)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

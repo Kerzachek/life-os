@@ -116,6 +116,12 @@ class SyncEngine {
       fromJson: FinanceCategoryEntity.fromJson,
     ),
     DriftSyncTable(
+      name: 'category_budgets',
+      db: _db,
+      table: _db.categoryBudgets,
+      fromJson: CategoryBudgetEntity.fromJson,
+    ),
+    DriftSyncTable(
       name: 'finance_accounts',
       db: _db,
       table: _db.financeAccounts,

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/repositories/finance_repository.dart';
+import '../../domain/category_budgets.dart';
+import '../../domain/finance_analytics.dart';
 import '../../domain/finance_calculations.dart';
 import '../../domain/finance_enums.dart';
 
@@ -238,4 +240,82 @@ final financeAccountMapProvider =
     Provider<Map<String, FinanceAccountEntity>>((ref) {
   final list = ref.watch(financeAccountsProvider).value ?? const [];
   return {for (final a in list) a.id: a};
+});
+
+// ------------------------------------------------- Бюджеты и аналитика
+
+final financeBudgetsProvider =
+    StreamProvider<List<CategoryBudgetEntity>>((ref) {
+  return ref.watch(financeRepositoryProvider).watchBudgets();
+});
+
+AsyncValue<List<CategoryBudgetStatus>> _budgetsFor(Ref ref, DateTime month) {
+  final budgets = ref.watch(financeBudgetsProvider);
+  final categories = ref.watch(financeCategoriesProvider);
+  final transactions = ref.watch(financeTransactionsProvider);
+  if (budgets.hasError) {
+    return AsyncValue.error(budgets.error!, budgets.stackTrace!);
+  }
+  if (categories.hasError) {
+    return AsyncValue.error(categories.error!, categories.stackTrace!);
+  }
+  if (transactions.hasError) {
+    return AsyncValue.error(transactions.error!, transactions.stackTrace!);
+  }
+  final b = budgets.value;
+  final c = categories.value;
+  final t = transactions.value;
+  if (b == null || c == null || t == null) return const AsyncValue.loading();
+  return AsyncValue.data(buildCategoryBudgets(
+    budgets: b,
+    categories: c,
+    transactions: t,
+    month: month,
+  ));
+}
+
+/// Бюджеты категорий за месяц, выбранный в обзоре.
+final categoryBudgetsProvider =
+    Provider<AsyncValue<List<CategoryBudgetStatus>>>((ref) {
+  return _budgetsFor(ref, ref.watch(financeSelectedMonthProvider));
+});
+
+/// Почти исчерпанные и превышенные лимиты ТЕКУЩЕГО месяца — предупреждения
+/// в карточке «Доступно сегодня».
+final budgetAlertsProvider = Provider<List<CategoryBudgetStatus>>((ref) {
+  final now = DateTime.now();
+  final statuses = _budgetsFor(ref, DateTime(now.year, now.month)).value;
+  return [
+    for (final s in statuses ?? const <CategoryBudgetStatus>[])
+      if (s.needsAttention) s,
+  ];
+});
+
+/// Доходы и расходы за [analyticsMonths] месяцев до выбранного.
+final monthlyCashflowProvider =
+    Provider<AsyncValue<List<MonthlyCashflow>>>((ref) {
+  final month = ref.watch(financeSelectedMonthProvider);
+  return ref.watch(financeTransactionsProvider).whenData(
+        (t) => buildMonthlyCashflow(transactions: t, endMonth: month),
+      );
+});
+
+/// Чистые активы на конец каждого из [analyticsMonths] месяцев до выбранного.
+final netWorthHistoryProvider =
+    Provider<AsyncValue<List<NetWorthPoint>>>((ref) {
+  final month = ref.watch(financeSelectedMonthProvider);
+  final accounts = ref.watch(financeAccountsProvider);
+  final transactions = ref.watch(financeTransactionsProvider);
+  if (accounts.hasError) {
+    return AsyncValue.error(accounts.error!, accounts.stackTrace!);
+  }
+  if (transactions.hasError) {
+    return AsyncValue.error(transactions.error!, transactions.stackTrace!);
+  }
+  final a = accounts.value;
+  final t = transactions.value;
+  if (a == null || t == null) return const AsyncValue.loading();
+  return AsyncValue.data(
+    buildNetWorthHistory(accounts: a, transactions: t, endMonth: month),
+  );
 });

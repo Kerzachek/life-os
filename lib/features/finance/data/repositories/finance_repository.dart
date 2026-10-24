@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/database/database_provider.dart';
+import '../../domain/category_budgets.dart';
 import '../../domain/finance_calculations.dart';
 import '../../domain/finance_category_presets.dart';
 import '../../domain/finance_enums.dart';
@@ -890,5 +891,65 @@ class FinanceRepository {
       ));
     });
     return true;
+  }
+
+  // ---------------------------------------------------------------- Бюджеты
+
+  Stream<List<CategoryBudgetEntity>> watchBudgets() {
+    return (_db.select(_db.categoryBudgets)
+          ..where((b) => b.deletedAt.isNull())
+          ..orderBy([(b) => OrderingTerm.asc(b.period)]))
+        .watch();
+  }
+
+  /// Задаёт лимит [limit] категории [categoryId] с месяца [month] и далее
+  /// (до месяца, для которого задан другой лимит). `null` или `<= 0` снимает
+  /// лимит с [month].
+  Future<void> setCategoryBudget({
+    required String categoryId,
+    required DateTime month,
+    double? limit,
+  }) async {
+    final period = budgetPeriod(month);
+    final id = categoryBudgetId(categoryId, period);
+    final now = DateTime.now().toUtc();
+    await _db.transaction(() async {
+      final rows = await (_db.select(_db.categoryBudgets)
+            ..where((b) => b.categoryId.equals(categoryId)))
+          .get();
+      final existing = rows.where((b) => b.id == id).firstOrNull;
+      final value = limit == null || limit <= 0 ? null : roundMoney(limit);
+      if (value == null) {
+        final inherited = effectiveBudgetLimit(
+          rows.where((b) => b.period < period),
+          categoryId,
+          month,
+        );
+        if (inherited == null) {
+          // Раньше лимита не было — достаточно убрать запись этого месяца.
+          if (existing != null && existing.deletedAt == null) {
+            await (_db.update(_db.categoryBudgets)
+                  ..where((b) => b.id.equals(id)))
+                .write(CategoryBudgetsCompanion(
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ));
+          }
+          return;
+        }
+      }
+      // Нулевой лимит перекрывает лимит, унаследованный от прошлых месяцев.
+      await _db.into(_db.categoryBudgets).insertOnConflictUpdate(
+            CategoryBudgetsCompanion.insert(
+              id: id,
+              createdAt: existing?.createdAt ?? now,
+              updatedAt: now,
+              deletedAt: const Value(null),
+              categoryId: categoryId,
+              monthlyLimit: value ?? 0,
+              period: period,
+            ),
+          );
+    });
   }
 }

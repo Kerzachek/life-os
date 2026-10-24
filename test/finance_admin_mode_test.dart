@@ -218,6 +218,12 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('Платёж пропущен без списания средств'), findsOneWidget);
+      // Карточка платежей сжалась и могла уехать выше видимой области.
+      await tester.scrollUntilVisible(
+        find.textContaining('пропущено в этом месяце'),
+        -200,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.textContaining('пропущено в этом месяце'), findsOneWidget);
       expect(find.byKey(ValueKey('skip_$id')), findsNothing);
       expect((await tester.runAsync(repo.getTransactions))!, isEmpty);
