@@ -35,7 +35,9 @@ constexpr UINT kOpenCommand = 1;
 constexpr UINT kHideCommand = 2;
 constexpr UINT kFirstActionCommand = 100;
 
-// "Открыть LifeOS" / "Скрыть".
+// "Открыть LifeOS" / "Скрыть". Escape-последовательности, а не кириллица в
+// литерале: без /utf-8 MSVC читает исходник в кодировке системы (CP1251),
+// и пункты меню превращаются в кракозябры.
 constexpr const wchar_t kOpenLabel[] =
     L"Открыть LifeOS";
 constexpr const wchar_t kHideLabel[] = L"Скрыть";
