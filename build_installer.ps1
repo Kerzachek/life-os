@@ -59,6 +59,13 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 if (-not (Test-Path (Join-Path $PSScriptRoot 'key.json'))) {
     throw "key.json not found in project root. Create it with your OAuth credentials before building."
 }
+# Empty keys build fine but disable Google sign-in ("Вход недоступен").
+$keys = Get-Content (Join-Path $PSScriptRoot 'key.json') -Raw | ConvertFrom-Json
+foreach ($name in 'GOOGLE_DESKTOP_CLIENT_ID', 'GOOGLE_DESKTOP_CLIENT_SECRET', 'GOOGLE_SERVER_CLIENT_ID') {
+    if ([string]::IsNullOrWhiteSpace($keys.$name)) {
+        throw "key.json: $name is missing or empty."
+    }
+}
 if (-not (Test-Path (Join-Path $PSScriptRoot 'installer.iss'))) {
     throw "installer.iss not found next to build_installer.ps1."
 }

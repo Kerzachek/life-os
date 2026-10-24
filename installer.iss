@@ -1,6 +1,6 @@
 ; Скрипт сборки инсталлятора Life OS через Inno Setup
 #define MyAppName "Life OS"
-#define MyAppVersion "1.8.5"
+#define MyAppVersion "1.8.6"
 #define MyAppPublisher "Personal"
 #define MyAppExeName "home_organizer.exe"
 #define MyAppSourceDir "build\windows\x64\runner\Release"
