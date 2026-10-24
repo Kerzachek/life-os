@@ -2,7 +2,7 @@ name: home_organizer
 description: "Cross-Platform Life Organizer (Personal ERP) built with Flutter"
 publish_to: 'none'
 
-version: 1.8.4+21
+version: 1.8.5+22
 
 environment:
   sdk: ^3.13.5

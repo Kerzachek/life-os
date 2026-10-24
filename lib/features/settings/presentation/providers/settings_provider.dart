@@ -20,6 +20,16 @@ const String quickActionsWidgetKey = 'quick_actions_widget_enabled';
 /// Ключ последнего положения плавающей кнопки (см. [QuickButtonPosition]).
 const String quickActionsPositionKey = 'quick_actions_widget_position';
 
+/// Ключ переключателя системного оверлея (кнопка поверх всех окон ОС).
+const String systemOverlayEnabledKey = 'system_overlay_enabled';
+
+/// Ключ чекбокса «Скрывать оверлей, когда открыто окно LifeOS».
+const String systemOverlayHideWhenAppVisibleKey =
+    'system_overlay_hide_when_app_visible';
+
+/// Ключ положения системного оверлея (формат [QuickButtonPosition]).
+const String systemOverlayPositionKey = 'system_overlay_position';
+
 final rawSettingsStreamProvider = StreamProvider<Map<String, String>>((ref) {
   return ref.watch(settingsRepositoryProvider).watchAll();
 });
@@ -47,6 +57,18 @@ bool resolveBackgroundModeEnabled(Map<String, String> settings) {
 /// Показывать ли плавающую кнопку быстрых действий (по умолчанию — да).
 bool resolveShowQuickActionsWidget(Map<String, String> settings) {
   return _parseBool(settings[quickActionsWidgetKey]) ?? true;
+}
+
+/// Включён ли системный оверлей (по умолчанию — нет: на Android нужен
+/// отдельный доступ «Поверх других приложений»).
+bool resolveSystemOverlayEnabled(Map<String, String> settings) {
+  return _parseBool(settings[systemOverlayEnabledKey]) ?? false;
+}
+
+/// Прятать ли системный оверлей при открытом окне LifeOS (по умолчанию —
+/// да: внутри окна есть своя плавающая кнопка).
+bool resolveSystemOverlayHideWhenAppVisible(Map<String, String> settings) {
+  return _parseBool(settings[systemOverlayHideWhenAppVisibleKey]) ?? true;
 }
 
 /// Положение плавающей кнопки: прижата к левому или правому краю, по
@@ -129,6 +151,26 @@ final quickButtonPositionProvider = Provider<QuickButtonPosition>((ref) {
   return QuickButtonPosition.decode(settings?[quickActionsPositionKey]);
 });
 
+/// Включён ли системный оверлей.
+final systemOverlayEnabledProvider = Provider<bool>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  if (settings == null) return false;
+  return resolveSystemOverlayEnabled(settings);
+});
+
+/// Прятать ли системный оверлей при открытом окне LifeOS.
+final systemOverlayHideWhenAppVisibleProvider = Provider<bool>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  if (settings == null) return true;
+  return resolveSystemOverlayHideWhenAppVisible(settings);
+});
+
+/// Сохранённое положение системного оверлея.
+final systemOverlayPositionProvider = Provider<QuickButtonPosition>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  return QuickButtonPosition.decode(settings?[systemOverlayPositionKey]);
+});
+
 /// Фактическое состояние автозапуска по записи в реестре Windows.
 /// Перечитывается при каждом изменении настроек.
 final launchAtStartupEnabledProvider = FutureProvider<bool>((ref) {
@@ -169,6 +211,19 @@ class SettingsController {
 
   Future<void> setQuickButtonPosition(QuickButtonPosition position) {
     return _repository.setValue(quickActionsPositionKey, position.encode());
+  }
+
+  Future<void> setSystemOverlayEnabled(bool enabled) {
+    return _repository.setValue(systemOverlayEnabledKey, enabled.toString());
+  }
+
+  Future<void> setSystemOverlayHideWhenAppVisible(bool hide) {
+    return _repository.setValue(
+        systemOverlayHideWhenAppVisibleKey, hide.toString());
+  }
+
+  Future<void> setSystemOverlayPosition(QuickButtonPosition position) {
+    return _repository.setValue(systemOverlayPositionKey, position.encode());
   }
 
   /// Создаёт или удаляет запись автозапуска в реестре и запоминает выбор.

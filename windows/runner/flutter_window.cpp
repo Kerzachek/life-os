@@ -26,6 +26,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  quick_overlay_ = std::make_unique<QuickOverlay>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // Autostart with --minimized keeps the window hidden (tray only).
@@ -44,6 +46,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  quick_overlay_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

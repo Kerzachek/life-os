@@ -140,6 +140,12 @@ void main() {
     await tester.tap(find.text('Открыть Настройки'));
     await tester.pumpAndSettle();
     expect(find.byType(ModuleToggleTile), findsNWidgets(5));
+    await tester.scrollUntilVisible(
+      find.text('Система и фоновый режим'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Система и фоновый режим'), findsOneWidget);
     expect(find.text('Работа в фоне'), findsOneWidget);
     expect(find.text('Автозапуск с Windows'), findsOneWidget);

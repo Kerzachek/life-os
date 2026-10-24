@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +18,7 @@ import 'features/finance/presentation/screens/finance_screen.dart';
 import 'features/habits/presentation/screens/habits_screen.dart';
 import 'features/notes/presentation/screens/notes_screen.dart';
 import 'features/overview/presentation/screens/overview_screen.dart';
+import 'features/quick_actions/presentation/providers/system_overlay_provider.dart';
 import 'features/quick_actions/presentation/widgets/quick_actions_overlay.dart';
 import 'features/routine/presentation/screens/routine_screen.dart';
 import 'features/settings/domain/app_module.dart';
@@ -62,6 +65,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = AppSidebar.dashboardIndex;
+  StreamSubscription<String>? _overlayActions;
 
   @override
   void initState() {
@@ -74,7 +78,38 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ref.read(googleDriveSyncServiceProvider.notifier).start();
       ref.read(notificationSchedulerProvider).start();
       if (isDesktopPlatform) ref.read(trayServiceProvider).start();
+      _startSystemOverlay();
     });
+  }
+
+  @override
+  void dispose() {
+    _overlayActions?.cancel();
+    super.dispose();
+  }
+
+  /// Системный оверлей (кнопка поверх всех окон ОС): синхронизация с
+  /// настройками и запуск выбранных в нём действий.
+  Future<void> _startSystemOverlay() async {
+    if (!ref.read(systemOverlaySupportedProvider)) return;
+    ref.read(systemOverlayControllerProvider).start();
+    final service = ref.read(systemOverlayServiceProvider);
+    _overlayActions = service.actions.listen(_runOverlayAction);
+    // Android: приложение было закрыто и запущено самим оверлеем.
+    final pending = await service.takePendingAction();
+    if (pending != null) _runOverlayAction(pending);
+  }
+
+  /// Открывает форму действия, выбранного в оверлее. Окно LifeOS к этому
+  /// моменту уже выведено на передний план нативной стороной.
+  void _runOverlayAction(String id) {
+    if (!mounted) return;
+    final enabled = ref.read(enabledModulesProvider);
+    final action = quickMenuActions
+        .where((a) => a.id == id && enabled.contains(a.module))
+        .firstOrNull;
+    if (action == null) return;
+    showFormSheet<void>(context: context, builder: action.builder);
   }
 
   void _openSettings() => _select(AppSidebar.settingsIndex);

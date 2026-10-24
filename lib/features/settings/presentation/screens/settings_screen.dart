@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/platform_info.dart';
+import '../../../quick_actions/presentation/providers/system_overlay_provider.dart';
 import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/module_toggle_tile.dart';
 import '../widgets/notification_settings_card.dart';
 import '../widgets/quick_actions_settings_card.dart';
 import '../widgets/sync_settings_card.dart';
+import '../widgets/system_overlay_settings_card.dart';
 import '../widgets/system_settings_card.dart';
 import '../widgets/update_settings_card.dart';
 
@@ -110,6 +112,10 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               const QuickActionsSettingsCard(),
               const SizedBox(height: 16),
+              if (ref.watch(systemOverlaySupportedProvider)) ...[
+                const SystemOverlaySettingsCard(),
+                const SizedBox(height: 16),
+              ],
               // Трей и автозапуск есть только на десктопе.
               if (isDesktopPlatform) ...[
                 const SystemSettingsCard(),

@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Уведомления-напоминания (Android 13+ запрашивает в рантайме). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Системная кнопка быстрых действий поверх других приложений
+         (QuickOverlay). Выдаётся вручную на экране спецдоступа. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <application
         android:label="LifeOS"
         android:name="${applicationName}"
