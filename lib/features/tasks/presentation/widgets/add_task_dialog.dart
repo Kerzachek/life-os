@@ -6,9 +6,11 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
+import '../../domain/task_recurrence.dart';
 import '../../domain/task_reminder.dart';
 import '../providers/tasks_provider.dart';
 import 'category_dropdown_field.dart';
+import 'recurrence_field.dart';
 import 'reminder_field.dart';
 
 /// Универсальная форма задачи: создание (`taskToEdit == null`) или
@@ -31,8 +33,12 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
   DateTime? _reminderAt;
   late TaskPriority _priority;
   late TaskCategory _category;
+  TaskRecurrence? _recurrence;
 
   bool get _isEditing => widget.taskToEdit != null;
+
+  /// Повторяются только задачи верхнего уровня.
+  bool get _canRecur => widget.taskToEdit?.parentId == null;
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
         ? TaskPriority.fromValue(task.priority)
         : TaskPriority.medium;
     _category = TaskCategory.fromId(task?.categoryId);
+    _recurrence = TaskRecurrence.parse(task?.recurrenceRule);
   }
 
   /// Меняет срок; напоминание из пресета («за сутки» и т. п.) сдвигается
@@ -88,6 +95,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
         reminderAt: _reminderAt,
         priority: _priority,
         category: _category,
+        recurrence: _recurrence,
       );
     } else {
       controller.createTask(
@@ -97,6 +105,7 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
         reminderAt: _reminderAt,
         priority: _priority,
         category: _category,
+        recurrence: _recurrence,
       );
     }
     Navigator.of(context).pop();
@@ -110,7 +119,10 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Удалить задачу?'),
-        content: const Text('Вы действительно хотите удалить эту задачу?'),
+        content: const Text(
+          'Вы действительно хотите удалить эту задачу? '
+          'Её подзадачи тоже будут удалены.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -246,6 +258,14 @@ class _AddTaskDialogState extends ConsumerState<AddTaskDialog> {
                   reminderAt: _reminderAt,
                   onChanged: (val) => setState(() => _reminderAt = val),
                 ),
+                if (_canRecur) ...[
+                  const SizedBox(height: 12),
+                  RecurrenceField(
+                    value: _recurrence,
+                    dueDate: _dueDate,
+                    onChanged: (val) => setState(() => _recurrence = val),
+                  ),
+                ],
               ],
             ),
           ),

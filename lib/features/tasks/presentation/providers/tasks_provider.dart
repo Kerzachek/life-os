@@ -4,6 +4,7 @@ import '../../../../core/database/app_database.dart';
 import '../../data/repositories/tasks_repository.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
+import '../../domain/task_recurrence.dart';
 import '../../domain/task_status.dart';
 
 enum TaskStatusFilter {
@@ -70,6 +71,9 @@ final filteredTasksProvider = Provider<AsyncValue<List<TaskEntity>>>((ref) {
 
   return tasksAsync.whenData((tasks) {
     return tasks.where((task) {
+      // Подзадачи показываются внутри карточки родителя.
+      if (task.parentId != null) return false;
+
       // Фильтр по категории
       if (categoryFilter != null &&
           TaskCategory.fromId(task.categoryId) != categoryFilter) {
@@ -98,6 +102,14 @@ final filteredTasksProvider = Provider<AsyncValue<List<TaskEntity>>>((ref) {
   });
 });
 
+/// Подзадачи задачи в порядке добавления.
+final subtasksProvider =
+    Provider.family<List<TaskEntity>, String>((ref, parentId) {
+  final tasks = ref.watch(rawTasksStreamProvider).value ?? const [];
+  return tasks.where((t) => t.parentId == parentId).toList()
+    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+});
+
 final tasksControllerProvider = Provider<TasksController>((ref) {
   return TasksController(ref.watch(tasksRepositoryProvider));
 });
@@ -114,6 +126,7 @@ class TasksController {
     DateTime? reminderAt,
     TaskPriority priority = TaskPriority.medium,
     TaskCategory category = TaskCategory.defaultCategory,
+    TaskRecurrence? recurrence,
   }) async {
     await _repository.createTask(
       title: title,
@@ -122,7 +135,12 @@ class TasksController {
       reminderAt: reminderAt,
       priority: priority,
       category: category,
+      recurrence: recurrence,
     );
+  }
+
+  Future<void> addSubtask(String parentId, String title) async {
+    await _repository.addSubtask(parentId, title);
   }
 
   Future<void> updateTask({
@@ -133,6 +151,7 @@ class TasksController {
     DateTime? reminderAt,
     required TaskPriority priority,
     required TaskCategory category,
+    TaskRecurrence? recurrence,
   }) async {
     await _repository.updateTask(
       id: id,
@@ -142,6 +161,7 @@ class TasksController {
       reminderAt: reminderAt,
       priority: priority,
       category: category,
+      recurrence: recurrence,
     );
   }
 

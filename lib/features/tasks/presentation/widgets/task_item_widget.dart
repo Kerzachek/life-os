@@ -5,6 +5,7 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../domain/task_category.dart';
 import '../../domain/task_priority.dart';
+import '../../domain/task_recurrence.dart';
 import '../../domain/task_reminder.dart';
 import '../../domain/task_status.dart';
 import '../providers/tasks_provider.dart';
@@ -13,15 +14,30 @@ import 'category_badge.dart';
 import 'due_date_badge.dart';
 import 'priority_badge.dart';
 import 'reminder_badge.dart';
+import 'subtask_list.dart';
 
-class TaskItemWidget extends ConsumerWidget {
+class TaskItemWidget extends ConsumerStatefulWidget {
   final TaskEntity task;
 
   const TaskItemWidget({super.key, required this.task});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskItemWidget> createState() => _TaskItemWidgetState();
+}
+
+class _TaskItemWidgetState extends ConsumerState<TaskItemWidget> {
+  bool _expanded = false;
+
+  TaskEntity get task => widget.task;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final recurrence = TaskRecurrence.parse(task.recurrenceRule);
+    final subtasks = ref.watch(subtasksProvider(task.id));
+    final completedSubtasks = subtasks
+        .where((t) => t.status == TaskStatus.completed.value)
+        .length;
     final isCompleted = task.status == TaskStatus.completed.value;
     final priority = TaskPriority.fromValue(task.priority);
     final category = task.categoryId == null
@@ -82,6 +98,19 @@ class TaskItemWidget extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (recurrence != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Tooltip(
+                            message: recurrence.label,
+                            child: Icon(
+                              Icons.repeat_rounded,
+                              key: ValueKey('task-recurring-${task.id}'),
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   if (task.description?.isNotEmpty == true) ...[
@@ -125,8 +154,32 @@ class TaskItemWidget extends ConsumerWidget {
                         ),
                     ],
                   ),
+                  if (subtasks.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SubtaskProgress(
+                      key: ValueKey('task-subtask-progress-${task.id}'),
+                      completed: completedSubtasks,
+                      total: subtasks.length,
+                    ),
+                  ],
+                  if (_expanded) ...[
+                    const SizedBox(height: 4),
+                    SubtaskList(parent: task, subtasks: subtasks),
+                  ],
                 ],
               ),
+            ),
+            IconButton(
+              key: ValueKey('task-expand-${task.id}'),
+              tooltip: _expanded ? 'Свернуть подзадачи' : 'Подзадачи',
+              icon: Icon(
+                _expanded
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              color: theme.colorScheme.onSurfaceVariant,
+              onPressed: () => setState(() => _expanded = !_expanded),
             ),
             IconButton(
               key: ValueKey('task-edit-${task.id}'),
@@ -142,7 +195,7 @@ class TaskItemWidget extends ConsumerWidget {
               tooltip: 'Удалить',
               icon: const Icon(Icons.delete_outline, size: 20),
               color: theme.colorScheme.onSurfaceVariant,
-              onPressed: () => _confirmDelete(context, ref),
+              onPressed: () => _confirmDelete(subtasks.length),
             ),
           ],
         ),
@@ -150,12 +203,17 @@ class TaskItemWidget extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref) async {
+  void _confirmDelete(int subtaskCount) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Удалить задачу?'),
-        content: const Text('Вы действительно хотите удалить эту задачу?'),
+        content: Text(
+          subtaskCount == 0
+              ? 'Вы действительно хотите удалить эту задачу?'
+              : 'Вы действительно хотите удалить эту задачу '
+                  'и её подзадачи ($subtaskCount)?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -164,14 +222,14 @@ class TaskItemWidget extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.error,
             ),
             child: const Text('Удалить'),
           ),
         ],
       ),
     );
-    if (confirm == true) {
+    if (confirm == true && mounted) {
       ref.read(tasksControllerProvider).deleteTask(task.id);
     }
   }
