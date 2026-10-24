@@ -140,7 +140,7 @@ class ProductCard extends ConsumerWidget {
                   value: progress,
                   minHeight: 6,
                   color: color,
-                  backgroundColor: AppTheme.darkBorder,
+                  backgroundColor: Theme.of(context).colorScheme.outline,
                 ),
               ),
               const SizedBox(height: 4),

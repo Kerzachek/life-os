@@ -75,7 +75,7 @@ class _RoutineChartCardState extends ConsumerState<RoutineChartCard> {
                         'Продуктивность рутины',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -169,7 +169,7 @@ class _RoutineChartCardState extends ConsumerState<RoutineChartCard> {
                   ),
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => AppTheme.darkSurface,
+                      getTooltipColor: (_) => colorScheme.surfaceContainerHighest,
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         final stat = history[group.x];
                         final label = stat.hasData
@@ -179,7 +179,7 @@ class _RoutineChartCardState extends ConsumerState<RoutineChartCard> {
                         return BarTooltipItem(
                           '${DateFormat('dd.MM.yyyy').format(stat.day)}\n'
                           '$label',
-                          const TextStyle(color: Colors.white, fontSize: 11),
+                          TextStyle(color: colorScheme.onSurface, fontSize: 11),
                         );
                       },
                     ),

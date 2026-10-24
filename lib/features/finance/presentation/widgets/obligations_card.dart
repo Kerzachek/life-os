@@ -259,7 +259,7 @@ class ObligationsCard extends ConsumerWidget {
                   value: summary.obligationsProgress,
                   minHeight: 8,
                   color: AppTheme.successAccent,
-                  backgroundColor: AppTheme.darkBorder,
+                  backgroundColor: Theme.of(context).colorScheme.outline,
                 ),
               ),
             ],

@@ -21,7 +21,7 @@ const _channel = SystemOverlayService.defaultChannel;
 Future<void> _withApp(
   WidgetTester tester,
   Future<void> Function(AppDatabase db) body, {
-  Size size = const Size(1600, 1000),
+  Size size = const Size(1600, 1300),
   Future<void> Function(AppDatabase db)? seed,
 }) async {
   tester.view.physicalSize = size;

@@ -5,6 +5,7 @@ import '../../../../core/platform_info.dart';
 import '../../../quick_actions/presentation/providers/system_overlay_provider.dart';
 import '../../domain/app_module.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/appearance_settings_card.dart';
 import '../widgets/backup_settings_card.dart';
 import '../widgets/module_toggle_tile.dart';
 import '../widgets/notification_settings_card.dart';
@@ -38,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
                     'Настройки',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -72,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
                                 'Активные разделы',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -107,6 +108,8 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              const AppearanceSettingsCard(),
               const SizedBox(height: 16),
               const NotificationSettingsCard(),
               const SizedBox(height: 16),

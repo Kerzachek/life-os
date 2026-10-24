@@ -38,7 +38,7 @@ class HabitsOverviewCard extends ConsumerWidget {
                     'Привычки и Стрики',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],

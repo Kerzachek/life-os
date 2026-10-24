@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart' show Brightness;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/autostart_service.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../domain/app_module.dart';
 
@@ -23,6 +25,12 @@ const String systemOverlayHideWhenAppVisibleKey =
 
 /// Ключ положения системного оверлея (формат [QuickButtonPosition]).
 const String systemOverlayPositionKey = 'system_overlay_position';
+
+/// Ключ режима темы ([AppThemeMode.key]).
+const String themeModeKey = 'theme_mode';
+
+/// Ключ цветовой палитры ([AppPalette.key]).
+const String themePaletteKey = 'theme_palette';
 
 final rawSettingsStreamProvider = StreamProvider<Map<String, String>>((ref) {
   return ref.watch(settingsRepositoryProvider).watchAll();
@@ -147,6 +155,18 @@ final systemOverlayPositionProvider = Provider<QuickButtonPosition>((ref) {
   return QuickButtonPosition.decode(settings?[systemOverlayPositionKey]);
 });
 
+/// Режим темы. Пока настройки загружаются — тёмная.
+final themeModeProvider = Provider<AppThemeMode>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  return AppThemeMode.fromKey(settings?[themeModeKey]);
+});
+
+/// Цветовая палитра. Пока настройки загружаются — Cyber Obsidian.
+final themePaletteProvider = Provider<AppPalette>((ref) {
+  final settings = ref.watch(rawSettingsStreamProvider).value;
+  return AppPalette.fromKey(settings?[themePaletteKey]);
+});
+
 /// Фактическое состояние автозапуска по записи в реестре Windows.
 /// Перечитывается при каждом изменении настроек.
 final launchAtStartupEnabledProvider = FutureProvider<bool>((ref) {
@@ -192,6 +212,24 @@ class SettingsController {
 
   Future<void> setSystemOverlayPosition(QuickButtonPosition position) {
     return _repository.setValue(systemOverlayPositionKey, position.encode());
+  }
+
+  Future<void> setThemeMode(AppThemeMode mode) {
+    return _repository.setValue(themeModeKey, mode.key);
+  }
+
+  /// Выбирает палитру. Если режим не «Как в системе», он переключается на
+  /// яркость, для которой палитра задумана (Clean Light — светлая).
+  Future<void> setThemePalette(
+    AppPalette palette, {
+    required AppThemeMode currentMode,
+  }) async {
+    await _repository.setValue(themePaletteKey, palette.key);
+    if (currentMode == AppThemeMode.system) return;
+    final mode = palette.naturalBrightness == Brightness.dark
+        ? AppThemeMode.dark
+        : AppThemeMode.light;
+    if (mode != currentMode) await setThemeMode(mode);
   }
 
   /// Создаёт или удаляет запись автозапуска в реестре и запоминает выбор.

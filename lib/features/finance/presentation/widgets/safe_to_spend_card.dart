@@ -131,7 +131,7 @@ class SafeToSpendContent extends StatelessWidget {
                 value: state.spentRatio.clamp(0.0, 1.0),
                 minHeight: 8,
                 color: color,
-                backgroundColor: AppTheme.darkBorder,
+                backgroundColor: Theme.of(context).colorScheme.outline,
               ),
             ),
             if (state.isOverspent) ...[

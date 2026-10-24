@@ -70,7 +70,7 @@ class RoutineItemTile extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: done ? colorScheme.onSurfaceVariant : Colors.white,
+                    color: done ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
                     decoration: done ? TextDecoration.lineThrough : null,
                   ),
                 ),

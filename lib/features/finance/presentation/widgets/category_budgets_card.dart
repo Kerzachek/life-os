@@ -170,7 +170,7 @@ class _BudgetTile extends StatelessWidget {
                 value: status.ratio.clamp(0.0, 1.0),
                 minHeight: 8,
                 color: color,
-                backgroundColor: AppTheme.darkBorder,
+                backgroundColor: Theme.of(context).colorScheme.outline,
               ),
             ),
             const SizedBox(height: 4),

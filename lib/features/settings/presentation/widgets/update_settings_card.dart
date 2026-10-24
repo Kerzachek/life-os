@@ -66,7 +66,7 @@ class _UpdateSettingsCardState extends ConsumerState<UpdateSettingsCard> {
                   'Обновления',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],

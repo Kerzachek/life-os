@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'app_palette.dart';
+
 class AppTheme {
+  // Поверхности палитры Cyber Obsidian (тёмная тема по умолчанию). В
+  // виджетах вместо них — цвета текущей темы (`colorScheme`).
   static const Color darkBackground = Color(0xFF0D1117);
   static const Color darkSurface = Color(0xFF151921);
   static const Color darkSurfaceCard = Color(0xFF1C212B);
@@ -12,51 +16,79 @@ class AppTheme {
   static const Color successAccent = Color(0xFF00B894); // Green
   static const Color adminAccent = Color(0xFFFFB300); // Amber — режим администратора
 
-  static ThemeData get darkLauncherTheme {
+  /// Тема по умолчанию: Cyber Obsidian, тёмная.
+  static ThemeData get darkLauncherTheme =>
+      build(AppPalette.defaultPalette, Brightness.dark);
+
+  static Color _onColor(Color color) =>
+      ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+      ? Colors.white
+      : Colors.black;
+
+  /// Тема приложения для палитры [palette] в яркости [brightness].
+  static ThemeData build(AppPalette palette, Brightness brightness) {
+    final s = palette.surfaces(brightness);
+    // Конструкторы, а не copyWith: незаданные контейнеры (FAB, выбранный
+    // сегмент) берутся из primary/secondary палитры, а не из цветов
+    // Material по умолчанию.
+    final scheme = brightness == Brightness.dark
+        ? ColorScheme.dark(
+            primary: palette.primary,
+            onPrimary: _onColor(palette.primary),
+            secondary: palette.secondary,
+            onSecondary: _onColor(palette.secondary),
+            surface: s.card,
+            surfaceContainerHighest: s.surface,
+            outline: s.border,
+            outlineVariant: s.border,
+            onSurface: s.onSurface,
+            onSurfaceVariant: s.onSurfaceVariant,
+          )
+        : ColorScheme.light(
+            primary: palette.primary,
+            onPrimary: _onColor(palette.primary),
+            secondary: palette.secondary,
+            onSecondary: _onColor(palette.secondary),
+            surface: s.card,
+            surfaceContainerHighest: s.surface,
+            outline: s.border,
+            outlineVariant: s.border,
+            onSurface: s.onSurface,
+            onSurfaceVariant: s.onSurfaceVariant,
+          );
     return ThemeData(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: darkBackground,
-      colorScheme: const ColorScheme.dark(
-        primary: primaryAccent,
-        secondary: secondaryAccent,
-        surface: darkSurfaceCard,
-        surfaceContainerHighest: darkSurface,
-        outline: darkBorder,
-        outlineVariant: darkBorder,
-        onSurface: Color(0xFFF0F6FC),
-        onSurfaceVariant: Color(0xFF8B949E),
-      ),
+      brightness: brightness,
+      scaffoldBackgroundColor: s.background,
+      colorScheme: scheme,
       useMaterial3: true,
       visualDensity: VisualDensity.compact,
       cardTheme: CardThemeData(
-        color: darkSurfaceCard,
+        color: s.card,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: darkBorder, width: 1),
+          side: BorderSide(color: s.border, width: 1),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: darkSurface,
+        backgroundColor: s.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: darkBorder, width: 1),
+          side: BorderSide(color: s.border, width: 1),
         ),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: darkBackground,
+      appBarTheme: AppBarTheme(
+        backgroundColor: s.background,
+        foregroundColor: s.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleTextStyle: TextStyle(
-          color: Color(0xFFF0F6FC),
+          color: s.onSurface,
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: darkBorder,
-        thickness: 1,
-      ),
+      dividerTheme: DividerThemeData(color: s.border, thickness: 1),
     );
   }
 }

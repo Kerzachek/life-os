@@ -26,7 +26,7 @@ class RoutineScreen extends ConsumerWidget {
             'Рутина',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ],
@@ -59,7 +59,7 @@ class RoutineScreen extends ConsumerWidget {
                 Text(
                   'Рутина пока пуста',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),

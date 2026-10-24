@@ -71,7 +71,7 @@ class RoutineSummaryCard extends ConsumerWidget {
           softWrap: true,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 2),

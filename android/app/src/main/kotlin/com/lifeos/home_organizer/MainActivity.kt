@@ -10,6 +10,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity(), QuickOverlay.Listener {
     private var overlayChannel: MethodChannel? = null
+    private var widgetChannel: MethodChannel? = null
 
     /// Действие, с которым оверлей запустил приложение до старта Flutter.
     private var pendingAction: String? = null
@@ -71,12 +72,28 @@ class MainActivity : FlutterActivity(), QuickOverlay.Listener {
         }
         overlayChannel = channel
         QuickOverlay.listener = this
+
+        val widget = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIDGET_CHANNEL)
+        widget.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "update" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val data = call.arguments as? Map<String, Any?> ?: emptyMap()
+                    LifeOsGlanceWidget.update(applicationContext, data)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        widgetChannel = widget
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         if (QuickOverlay.listener === this) QuickOverlay.listener = null
         overlayChannel?.setMethodCallHandler(null)
         overlayChannel = null
+        widgetChannel?.setMethodCallHandler(null)
+        widgetChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -115,5 +132,6 @@ class MainActivity : FlutterActivity(), QuickOverlay.Listener {
 
     companion object {
         private const val CHANNEL = "lifeos/system_overlay"
+        private const val WIDGET_CHANNEL = "lifeos/home_widget"
     }
 }

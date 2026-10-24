@@ -62,7 +62,7 @@ class CreditLimitIndicator extends StatelessWidget {
             value: ratio,
             minHeight: 6,
             color: color,
-            backgroundColor: AppTheme.darkBorder,
+            backgroundColor: Theme.of(context).colorScheme.outline,
           ),
         ),
       ],

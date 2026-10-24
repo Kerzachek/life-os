@@ -64,11 +64,11 @@ FlTitlesData _titles({
   );
 }
 
-FlGridData _grid(double interval) => FlGridData(
+FlGridData _grid(double interval, Color lineColor) => FlGridData(
       drawVerticalLine: false,
       horizontalInterval: interval,
       getDrawingHorizontalLine: (_) =>
-          const FlLine(color: AppTheme.darkBorder, strokeWidth: 1),
+          FlLine(color: lineColor, strokeWidth: 1),
     );
 
 class _ChartCard extends StatelessWidget {
@@ -190,7 +190,7 @@ class _CashflowBody extends StatelessWidget {
               maxY: (maxY / interval).ceil() * interval,
               alignment: BarChartAlignment.spaceAround,
               borderData: FlBorderData(show: false),
-              gridData: _grid(interval),
+              gridData: _grid(interval, Theme.of(context).colorScheme.outline),
               titlesData: _titles(
                 months: [for (final i in items) i.month],
                 interval: interval,
@@ -198,7 +198,7 @@ class _CashflowBody extends StatelessWidget {
               ),
               barTouchData: BarTouchData(
                 touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (_) => AppTheme.darkSurfaceCard,
+                  getTooltipColor: (_) => Theme.of(context).colorScheme.surface,
                   getTooltipItem: (group, _, rod, rodIndex) => BarTooltipItem(
                     '${rodIndex == 0 ? 'Доходы' : 'Расходы'}\n'
                     '${formatMoney(rod.toY)}',
@@ -339,7 +339,7 @@ class _NetWorthBody extends StatelessWidget {
               minX: 0,
               maxX: points.length - 1.0,
               borderData: FlBorderData(show: false),
-              gridData: _grid(interval),
+              gridData: _grid(interval, Theme.of(context).colorScheme.outline),
               titlesData: _titles(
                 months: [for (final p in points) p.month],
                 interval: interval,
@@ -347,7 +347,7 @@ class _NetWorthBody extends StatelessWidget {
               ),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => AppTheme.darkSurfaceCard,
+                  getTooltipColor: (_) => Theme.of(context).colorScheme.surface,
                   getTooltipItems: (spots) => [
                     for (final s in spots)
                       LineTooltipItem(

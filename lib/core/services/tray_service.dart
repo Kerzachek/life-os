@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../features/settings/data/repositories/settings_repository.dart';
 import '../../features/settings/presentation/providers/settings_provider.dart';
+import '../backup/auto_backup_service.dart';
 import 'autostart_service.dart';
 import 'notification_service.dart';
 import 'routine_reset_service.dart';
@@ -41,12 +42,20 @@ class TrayService with WindowListener {
   /// (например, для проверки смены суток в рутине).
   final VoidCallback? onWindowShown;
 
+  /// Вызывается перед выходом (например, для резервной копии).
+  final Future<void> Function()? onBeforeQuit;
+
   final List<MenuItem> _menuItems = [];
   bool _started = false;
   bool _quitting = false;
   bool _backgroundHintShown = false;
 
-  TrayService(this._settings, this._notifications, {this.onWindowShown});
+  TrayService(
+    this._settings,
+    this._notifications, {
+    this.onWindowShown,
+    this.onBeforeQuit,
+  });
 
   /// Подключает window_manager и включает перехват крестика.
   /// Вызывается один раз в `main` с аргументами командной строки.
@@ -159,6 +168,11 @@ class TrayService with WindowListener {
   Future<void> quit() async {
     if (_quitting) return;
     _quitting = true;
+    try {
+      await onBeforeQuit?.call().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('TrayService: действие перед выходом не выполнено: $e');
+    }
     removeTrayIcon();
     try {
       await windowManager.setPreventClose(false);
@@ -207,6 +221,7 @@ final trayServiceProvider = Provider<TrayService>((ref) {
     ref.watch(notificationServiceProvider),
     onWindowShown: () =>
         unawaited(ref.read(routineResetServiceProvider).checkNow()),
+    onBeforeQuit: () => ref.read(autoBackupServiceProvider).backupNow(),
   );
   ref.onDispose(service.dispose);
   return service;

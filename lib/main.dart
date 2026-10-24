@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/backup/auto_backup_service.dart';
 import 'core/platform_info.dart';
 import 'core/services/autostart_service.dart';
+import 'core/services/home_widget_service.dart';
 import 'core/services/notification_scheduler.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/routine_reset_service.dart';
@@ -43,15 +45,24 @@ class HomeOrganizerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ProviderScope(
-      child: MaterialApp(
-        title: 'Life OS Dashboard',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkLauncherTheme,
-        darkTheme: AppTheme.darkLauncherTheme,
-        themeMode: ThemeMode.dark,
-        home: const MainScreen(),
-      ),
+    return const ProviderScope(child: _ThemedApp());
+  }
+}
+
+/// MaterialApp с темой из настроек (палитра и режим применяются сразу).
+class _ThemedApp extends ConsumerWidget {
+  const _ThemedApp();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = ref.watch(themePaletteProvider);
+    return MaterialApp(
+      title: 'Life OS Dashboard',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.build(palette, Brightness.light),
+      darkTheme: AppTheme.build(palette, Brightness.dark),
+      themeMode: ref.watch(themeModeProvider).themeMode,
+      home: const MainScreen(),
     );
   }
 }
@@ -63,13 +74,15 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = AppSidebar.dashboardIndex;
   StreamSubscription<String>? _overlayActions;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Автосинхронизация при старте (если пользователь уже вошёл в Google).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -77,6 +90,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ref.read(routineResetServiceProvider).start();
       ref.read(googleDriveSyncServiceProvider.notifier).start();
       ref.read(notificationSchedulerProvider).start();
+      ref.read(autoBackupServiceProvider).start();
       if (isDesktopPlatform) ref.read(trayServiceProvider).start();
       _startSystemOverlay();
     });
@@ -84,8 +98,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _overlayActions?.cancel();
     super.dispose();
+  }
+
+  /// Уход в фон (свернули, скрыли в трей, закрыли на телефоне) —
+  /// сегодняшняя локальная копия обновляется актуальными данными.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      unawaited(ref.read(autoBackupServiceProvider).backupNow());
+    }
   }
 
   /// Системный оверлей (кнопка поверх всех окон ОС): синхронизация с
@@ -153,6 +178,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final enabledModules = ref.watch(enabledModulesProvider);
     // Держит планировщик уведомлений (и его подписки на данные) активным.
     ref.watch(notificationSchedulerProvider);
+    // Android: виджет на домашнем экране следит за задачами и финансами.
+    ref.watch(homeWidgetSyncProvider);
     // Раздел «Финансы» отключили (в т.ч. синхронизацией) — режим не нужен.
     ref.listen(enabledModulesProvider, (_, modules) {
       if (!modules.contains(AppModule.finance)) {

@@ -30,7 +30,7 @@ class NotesScreen extends ConsumerWidget {
             'Заметки',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ],
@@ -217,7 +217,7 @@ class _EmptyNotes extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'Заметок пока нет',
-            style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
+            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
           ),
           const SizedBox(height: 4),
           Text(

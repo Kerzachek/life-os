@@ -50,7 +50,7 @@ Future<void> _withApp(
   Future<void> Function(AppDatabase db) body, {
   Future<void> Function(AppDatabase db)? seed,
 }) async {
-  tester.view.physicalSize = const Size(1600, 1000);
+  tester.view.physicalSize = const Size(1600, 1300);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final db = AppDatabase.forTesting(NativeDatabase.memory());

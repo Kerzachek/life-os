@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../domain/task_category.dart';
 
-/// Выпадающий список категорий в стиле тёмной темы: тёмный фон меню,
+/// Выпадающий список категорий в стиле темы приложения: фон меню,
 /// аккуратный бордер, неоновая подсветка выбранного пункта.
 class CategoryDropdownField extends StatelessWidget {
   final TaskCategory value;
@@ -17,6 +16,7 @@ class CategoryDropdownField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final borderRadius = BorderRadius.circular(12);
     OutlineInputBorder border(Color color, [double width = 1]) =>
         OutlineInputBorder(
@@ -28,15 +28,15 @@ class CategoryDropdownField extends StatelessWidget {
       key: const ValueKey('task-category-dropdown'),
       initialValue: value,
       isExpanded: true,
-      dropdownColor: AppTheme.darkSurface,
+      dropdownColor: colorScheme.surfaceContainerHighest,
       borderRadius: borderRadius,
       icon: Icon(Icons.expand_more_rounded, color: value.color),
       decoration: InputDecoration(
         labelText: 'Категория',
         filled: true,
-        fillColor: AppTheme.darkSurface,
-        border: border(AppTheme.darkBorder),
-        enabledBorder: border(AppTheme.darkBorder),
+        fillColor: colorScheme.surfaceContainerHighest,
+        border: border(colorScheme.outline),
+        enabledBorder: border(colorScheme.outline),
         focusedBorder: border(value.color, 1.5),
       ),
       // В закрытом поле — иконка и название выбранной категории.

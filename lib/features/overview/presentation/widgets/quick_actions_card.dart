@@ -73,7 +73,7 @@ class QuickActionsCard extends ConsumerWidget {
                   'Быстрые действия',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),

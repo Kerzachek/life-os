@@ -85,7 +85,7 @@ class WeeklyProgressCard extends ConsumerWidget {
                   'Прогресс и Продуктивность',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -179,10 +179,10 @@ class _ProgressRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '$done / $total (${(ratio * 100).toInt()}%)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],

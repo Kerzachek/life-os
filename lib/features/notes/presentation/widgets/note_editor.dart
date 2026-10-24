@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/responsive.dart';
 import '../../../finance/presentation/widgets/confirm_dialog.dart';
 import '../../domain/note.dart';
@@ -194,7 +193,9 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
     final colorScheme = theme.colorScheme;
     final tag = NoteColorTag.fromKey(_note.colorTag);
     final phone = isPhone(context);
-    final base = phone ? AppTheme.darkBackground : AppTheme.darkSurface;
+    final base = phone
+        ? theme.scaffoldBackgroundColor
+        : colorScheme.surfaceContainerHighest;
     final background = tag == null
         ? base
         : Color.alphaBlend(tag.color.withValues(alpha: 0.08), base);
@@ -269,7 +270,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
                   textInputAction: TextInputAction.next,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                   decoration: InputDecoration.collapsed(
                     hintText: 'Заголовок',

@@ -60,7 +60,7 @@ class NoteCard extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                           color: title.isEmpty
                               ? colorScheme.onSurfaceVariant
-                              : Colors.white,
+                              : colorScheme.onSurface,
                         ),
                       ),
                     ),

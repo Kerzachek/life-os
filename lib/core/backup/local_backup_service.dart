@@ -26,9 +26,10 @@ class LocalBackupService {
   /// Снимок всех синхронизируемых таблиц в виде JSON (UTF-8, с отступами,
   /// чтобы файл можно было прочитать глазами).
   Future<Uint8List> createBackup() async {
-    final payload = await _engine.exportToSyncPayload();
-    return encodeBackup(payload);
+    return encodeBackup(await createPayload());
   }
+
+  Future<SyncPayload> createPayload() => _engine.exportToSyncPayload();
 
   static Uint8List encodeBackup(SyncPayload payload) {
     final text = const JsonEncoder.withIndent('  ').convert(payload.toJson());

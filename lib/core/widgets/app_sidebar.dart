@@ -68,7 +68,10 @@ class AppSidebar extends ConsumerWidget {
     return Container(
       width: 200,
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0D12),
+        // Чуть темнее фона экранов (в светлой теме — цвет карточек).
+        color: theme.brightness == Brightness.dark
+            ? Color.lerp(theme.scaffoldBackgroundColor, Colors.black, 0.25)
+            : colorScheme.surface,
         border: Border(right: BorderSide(color: colorScheme.outline, width: 1)),
       ),
       child: Column(
@@ -91,7 +94,7 @@ class AppSidebar extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('LIFE OS', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white)),
+                      Text('LIFE OS', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 1.5, color: colorScheme.onSurface)),
                       Text('PERSONAL ERP', style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, letterSpacing: 1.2, color: colorScheme.onSurfaceVariant)),
                       if (appVersion != null)
                         Padding(
@@ -132,7 +135,7 @@ class AppSidebar extends ConsumerWidget {
                           children: [
                             Icon(item.icon, size: 20, color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant),
                             const SizedBox(width: 10),
-                            Text(item.label, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? Colors.white : colorScheme.onSurfaceVariant)),
+                            Text(item.label, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? colorScheme.onSurface : colorScheme.onSurfaceVariant)),
                           ],
                         ),
                       ),
@@ -190,7 +193,7 @@ class _ProfileCard extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        const Text('EGO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text('EGO', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
                         if (admin) ...[
                           const SizedBox(width: 6),
                           const AdminBadge(key: ValueKey('sidebar_admin_badge')),
